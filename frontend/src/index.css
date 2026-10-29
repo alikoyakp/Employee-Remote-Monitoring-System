@@ -1,0 +1,80 @@
+@import url("https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+    :root {
+        --background: 222 35% 7%;
+        --foreground: 210 20% 98%;
+        --card: 221 39% 11%;
+        --card-foreground: 210 20% 98%;
+        --popover: 221 39% 11%;
+        --popover-foreground: 210 20% 98%;
+        --primary: 239 84% 67%;
+        --primary-foreground: 0 0% 100%;
+        --secondary: 215 28% 17%;
+        --secondary-foreground: 210 20% 98%;
+        --muted: 215 28% 15%;
+        --muted-foreground: 218 11% 65%;
+        --accent: 215 28% 17%;
+        --accent-foreground: 210 20% 98%;
+        --destructive: 0 84% 60%;
+        --destructive-foreground: 0 0% 98%;
+        --border: 217 19% 17%;
+        --input: 217 19% 20%;
+        --ring: 239 84% 67%;
+        --chart-1: 160 84% 39%;
+        --chart-2: 38 92% 50%;
+        --chart-3: 217 91% 60%;
+        --chart-4: 239 84% 67%;
+        --chart-5: 25 95% 53%;
+        --radius: 0.75rem;
+    }
+}
+
+@layer base {
+    * {
+        @apply border-border;
+    }
+    body {
+        @apply bg-background text-foreground;
+        font-family: "Plus Jakarta Sans", sans-serif;
+        -webkit-font-smoothing: antialiased;
+    }
+    h1, h2, h3, h4, .font-heading {
+        font-family: "Outfit", sans-serif;
+    }
+    .font-mono, code {
+        font-family: "JetBrains Mono", monospace;
+    }
+    ::selection {
+        background: hsl(239 84% 67% / 0.35);
+    }
+}
+
+.grain::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.035;
+    z-index: 0;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+@keyframes pulse-dot {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.45; transform: scale(0.85); }
+}
+.pulse-dot { animation: pulse-dot 1.8s ease-in-out infinite; }
+
+@keyframes rise {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+.rise { animation: rise 0.45s ease-out both; }
+
+.scrollbar-thin::-webkit-scrollbar { height: 6px; width: 6px; }
+.scrollbar-thin::-webkit-scrollbar-thumb { background: hsl(217 19% 25%); border-radius: 999px; }

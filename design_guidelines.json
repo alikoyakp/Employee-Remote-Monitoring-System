@@ -1,0 +1,157 @@
+{
+  "project_name": "WorkPulse - Employee Tracking & Activity Monitoring Platform",
+  "app_type": "dashboard / saas_app",
+  "archetype": "THE PERFORMANCE PRO / TACTICAL MINIMALISM",
+  "theme": "Dark / Light system with high clarity data density",
+  "typography": {
+    "font_family_heading": "Outfit, sans-serif",
+    "font_family_body": "Plus Jakarta Sans, sans-serif",
+    "font_family_mono": "JetBrains Mono, monospace",
+    "scale": {
+      "h1": "text-3xl sm:text-4xl font-bold tracking-tight",
+      "h2": "text-2xl sm:text-3xl font-semibold tracking-tight",
+      "h3": "text-lg sm:text-xl font-medium tracking-tight",
+      "h4": "text-base font-semibold",
+      "body": "text-sm leading-relaxed",
+      "small": "text-xs font-medium text-slate-400",
+      "mono": "font-mono text-xs tracking-wide"
+    }
+  },
+  "colors": {
+    "mode": "hybrid_toggle_default_dark",
+    "dark": {
+      "bg_primary": "#0B0F17",
+      "bg_surface": "#111827",
+      "bg_surface_elevated": "#1F2937",
+      "bg_glass": "rgba(17, 24, 39, 0.75)",
+      "border": "rgba(255, 255, 255, 0.08)",
+      "border_highlight": "rgba(99, 102, 241, 0.3)",
+      "text_primary": "#F9FAFB",
+      "text_secondary": "#9CA3AF",
+      "text_muted": "#6B7280"
+    },
+    "light": {
+      "bg_primary": "#F8FAFC",
+      "bg_surface": "#FFFFFF",
+      "bg_surface_elevated": "#F1F5F9",
+      "bg_glass": "rgba(255, 255, 255, 0.8)",
+      "border": "#E2E8F0",
+      "border_highlight": "rgba(99, 102, 241, 0.3)",
+      "text_primary": "#0F172A",
+      "text_secondary": "#475569",
+      "text_muted": "#94A3B8"
+    },
+    "accents": {
+      "brand_primary": "#6366F1",
+      "brand_primary_hover": "#4F46E5",
+      "status_active": "#10B981",
+      "status_idle": "#F59E0B",
+      "status_break": "#3B82F6",
+      "status_offline": "#6B7280",
+      "status_error_danger": "#EF4444",
+      "status_missed_logout": "#F97316"
+    }
+  },
+  "layout_and_spacing": {
+    "dashboard_grid": "MODE B: High Density Grid (gap-4 md:gap-6)",
+    "container_padding": "p-4 sm:p-6 lg:p-8",
+    "card_padding": "p-5 md:p-6",
+    "border_radius": "rounded-xl for cards, rounded-lg for buttons/inputs, rounded-full for status indicators",
+    "sticky_header": "h-16 border-b border-border bg-surface/80 backdrop-blur-md sticky top-0 z-40 px-6 flex items-center justify-between"
+  },
+  "visual_enhancers": {
+    "monitoring_active_banner": "bg-emerald-900/30 border border-emerald-500/40 text-emerald-300 px-4 py-2.5 rounded-xl flex items-center justify-between shadow-lg shadow-emerald-950/20 animate-pulse-subtle",
+    "card_style": "bg-surface border border-border rounded-xl shadow-sm hover:border-slate-700 transition-colors duration-200",
+    "glass_panel": "backdrop-blur-xl bg-surface/75 border border-white/10 shadow-2xl",
+    "status_pill": "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium tracking-wide"
+  },
+  "key_features_and_pages": [
+    {
+      "page_name": "Authentication & Role-Based Login",
+      "route": "/login",
+      "description": "Centered professional login box supporting Admin, Manager, and Employee credentials with role-switcher demo buttons for immediate testing.",
+      "components": "Centered Card, Input fields, Remember Me, Role Switcher Demo Pills, Submit Button with spinner"
+    },
+    {
+      "page_name": "Main Dashboard & Live Status Board",
+      "route": "/dashboard",
+      "description": "Real-time workforce command center with KPI summaries (Total Staff, Logged In, Active, Idle, On Break, Avg Hours), Monitoring Status Bar, Live Employee Grid with real-time mouse/keyboard activity indicators, and Attendance Heatmap/Chart.",
+      "components": "Metric Cards, Live Employee Status Grid, Interactive Activity Meter, Monitoring Indicator, Attendance Trends Chart"
+    },
+    {
+      "page_name": "Clock In / Clock Out & Break Bar",
+      "route": "Global Header / Dashboard Widget",
+      "description": "Interactive employee timer widget supporting Shift Start (Clock In), Take Break, Resume Work, and Clock Out with active duration counter and real-time mouse/click tracker.",
+      "components": "Action Buttons, Live Duration Counter, Realtime Event Counters (Clicks, Mouse, Keys), Monitoring Active Banner"
+    },
+    {
+      "page_name": "Employee & Department Management",
+      "route": "/employees & /departments",
+      "description": "Filterable employee directory table with edit drawer, role assignment (Admin, Manager, Employee), reporting manager dropdown, work schedule selector, and per-user Screenshot Toggle switch.",
+      "components": "Data Table with Pagination, Filters & Search, Edit Employee Drawer/Modal, Screenshot Switch Toggle, Role Badges"
+    },
+    {
+      "page_name": "Bulk CSV/XLSX Import Wizard",
+      "route": "/import",
+      "description": "4-step wizard: 1. Drag & drop CSV/XLSX file with template download links. 2. Data Preview & Row-level validation errors highlight. 3. Confirm Import with summary counts. 4. Historical import logs table.",
+      "components": "Drag-and-Drop Dropzone, Sample CSV/XLSX Download Buttons, Data Validation Table with Red Error Rows, Import Summary Modal, Import History Log"
+    },
+    {
+      "page_name": "Attendance Sessions & Activity Timeline",
+      "route": "/attendance & /activity-timeline",
+      "description": "Session tracking log displaying login/logout timestamps, total duration, missed logout flags, and an interactive hourly timeline of active vs idle blocks and keystroke/mouse velocity.",
+      "components": "Session Table, Missed Logout Warning Badge, Hourly Visual Bar Timeline, Idle/Active Filter, Activity Heatmap"
+    },
+    {
+      "page_name": "Screenshot Gallery & Audit Logs",
+      "route": "/screenshots & /audit-logs",
+      "description": "Authorized Manager view of periodic screen captures organized by employee, date, and hour. Includes lightbox preview, blur option for sensitive content, 30-day auto-deletion notice, and tamper-proof audit log trail.",
+      "components": "Gallery Grid with Timestamp Overlays, Lightbox Dialog, Manager Authorization Guard, 30-Day Auto Delete Banner, Filter by Employee & Date"
+    },
+    {
+      "page_name": "Reports & Analytics",
+      "route": "/reports",
+      "description": "Comprehensive daily/weekly/monthly productivity reports with filters by department, manager, date range, and export options to CSV and Excel.",
+      "components": "Date Range Picker, Department Selector, Summary Metrics, Interactive Recharts (Work Duration vs Idle Time), Export Buttons (CSV/XLSX)"
+    },
+    {
+      "page_name": "Settings & Desktop Agent Download",
+      "route": "/settings & /agent-download",
+      "description": "System configuration for idle threshold (e.g., 5 mins), screenshot capture frequency (e.g., 10 mins), 30-day retention rule notice, and desktop agent download links (Windows, macOS, Linux) with installation key.",
+      "components": "Config Sliders/Selects, Transparent Monitoring Policy Notice Box, Download Buttons with OS Icons, License Key Copy Input"
+    }
+  ],
+  "image_urls": {
+    "avatars": [
+      {
+        "url": "https://images.unsplash.com/photo-1494790108377-be9c29b29330?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDk1NzZ8MHwxfHNlYXJjaHwzfHxwcm9mZXNzaW9uYWwlMjBjb3Jwb3JhdGUlMjBlbXBsb3llZSUyMGF2YXRhciUyMHBvcnRyYWl0JTIwaGVhZHNob3R8ZW58MHx8fHwxNzg5MjMzNjMzfDA&ixlib=rb-4.1.0&q=85",
+        "description": "Sarah Jenkins - Admin / Operations Manager",
+        "category": "Employee Avatar"
+      },
+      {
+        "url": "https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDk1NzZ8MHwxfHNlYXJjaHwyfHxwcm9mZXNzaW9uYWwlMjBjb3Jwb3JhdGUlMjBlbXBsb3llZSUyMGF2YXRhciUyMHBvcnRyYWl0JTIwaGVhZHNob3R8ZW58MHx8fHwxNzg5MjMzNjMzfDA&ixlib=rb-4.1.0&q=85",
+        "description": "Elena Rostova - Engineering Lead",
+        "category": "Employee Avatar"
+      },
+      {
+        "url": "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDk1NzZ8MHwxfHNlYXJjaHw0fHxwcm9mZXNzaW9uYWwlMjBjb3Jwb3JhdGUlMjBlbXBsb3llZSUyMGF2YXRhciUyMHBvcnRyYWl0JTIwaGVhZHNob3R8ZW58MHx8fHwxNzg5MjMzNjMzfDA&ixlib=rb-4.1.0&q=85",
+        "description": "David Chen - Senior Frontend Developer",
+        "category": "Employee Avatar"
+      },
+      {
+        "url": "https://images.unsplash.com/photo-1560250097-0b93528c311a?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDk1NzZ8MHwxfHNlYXJjaHwxfHxwcm9mZXNzaW9uYWwlMjBjb3Jwb3JhdGUlMjBlbXBsb3llZSUyMGF2YXRhciUyMHBvcnRyYWl0JTIwaGVhZHNob3R8ZW58MHx8fHwxNzg5MjMzNjMzfDA&ixlib=rb-4.1.0&q=85",
+        "description": "Marcus Vance - Product Manager",
+        "category": "Employee Avatar"
+      }
+    ]
+  },
+  "instructions_to_main_agent": [
+    "Ensure all key interactive components (buttons, links, form inputs, role switchers, table rows, modals, navigation tabs) include clear data-testid attributes (e.g. data-testid='clock-in-button', data-testid='employee-role-select').",
+    "Use Lucide icons (lucide-react) across all navigation and dashboard stat cards.",
+    "Implement Sonner toast notifications for actions like Clock In/Out, CSV Import validation, Screenshot Toggle changes, and Report Exports.",
+    "Provide demo dataset seed including 12+ realistic employees across 4 departments (Engineering, Product, Marketing, Sales) with active, idle, break, and offline states.",
+    "Ensure screenshot gallery views check for role authorization (Manager or Admin) and feature explicit 30-day retention transparency notice banners.",
+    "Support full CSV and XLSX parsing/validation for the Bulk Import wizard using PapaParse or XLSX utility, displaying exact row numbers for validation errors.",
+    "Include quick mock role switcher in the top navigation or auth page so reviewers can easily switch between Admin, Manager, and Employee modes."
+  ]
+}

@@ -1,0 +1,8 @@
+crons:
+  - name: maintenance
+    description: "Closes sessions with missed logouts and applies screenshot/activity retention"
+    cron: "*/15 * * * *"
+    endpoint: "{{BASE_URL}}/api/cron/maintenance"
+    method: POST
+    # Cron endpoints must ack 2xx immediately; enqueue/background the actual work.
+    enabled: true

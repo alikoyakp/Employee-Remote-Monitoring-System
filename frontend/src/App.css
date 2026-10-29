@@ -1,0 +1,9 @@
+.recharts-cartesian-axis-tick text {
+    fill: hsl(218 11% 65%);
+    font-size: 11px;
+}
+.recharts-tooltip-wrapper .recharts-default-tooltip {
+    background: #111827 !important;
+    border: 1px solid hsl(217 19% 22%) !important;
+    border-radius: 8px;
+}
