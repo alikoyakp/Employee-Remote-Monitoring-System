@@ -3,30 +3,30 @@ import { Button } from "@/components/ui/button";
 import { useTracker } from "@/context/TrackerContext";
 import { StatusPill } from "@/components/StatusPill";
 
-export function ClockWidget({ compact = false }) {
+export function ClockWidget({ compact = false, prefix = "" }) {
   const { state, busy, clockIn, clockOut, breakStart, breakEnd } = useTracker();
   if (!state) return null;
   const inSession = !!state.session;
   return (
-    <div className="flex items-center gap-2" data-testid="clock-widget">
-      {!compact && <StatusPill status={state.status} testId="my-status-pill" />}
+    <div className="flex items-center gap-2" data-testid={`${prefix}clock-widget`}>
+      {!compact && <StatusPill status={state.status} testId={`${prefix}my-status-pill`} />}
       {!inSession && (
-        <Button size="sm" disabled={busy} onClick={clockIn} data-testid="clock-in-button" className="rounded-full bg-emerald-600 text-white hover:bg-emerald-500">
+        <Button size="sm" disabled={busy} onClick={clockIn} data-testid={`${prefix}clock-in-button`} className="rounded-full bg-emerald-600 text-white hover:bg-emerald-500">
           <LogIn className="mr-1 h-4 w-4" /> Clock in
         </Button>
       )}
       {inSession && !state.break && (
-        <Button size="sm" variant="secondary" disabled={busy} onClick={breakStart} data-testid="break-start-button" className="rounded-full">
+        <Button size="sm" variant="secondary" disabled={busy} onClick={breakStart} data-testid={`${prefix}break-start-button`} className="rounded-full">
           <Coffee className="mr-1 h-4 w-4" /> Break
         </Button>
       )}
       {inSession && state.break && (
-        <Button size="sm" disabled={busy} onClick={breakEnd} data-testid="break-end-button" className="rounded-full bg-blue-600 text-white hover:bg-blue-500">
+        <Button size="sm" disabled={busy} onClick={breakEnd} data-testid={`${prefix}break-end-button`} className="rounded-full bg-blue-600 text-white hover:bg-blue-500">
           <Play className="mr-1 h-4 w-4" /> Resume
         </Button>
       )}
       {inSession && (
-        <Button size="sm" variant="outline" disabled={busy} onClick={clockOut} data-testid="clock-out-button" className="rounded-full">
+        <Button size="sm" variant="outline" disabled={busy} onClick={clockOut} data-testid={`${prefix}clock-out-button`} className="rounded-full">
           <LogOut className="mr-1 h-4 w-4" /> Clock out
         </Button>
       )}

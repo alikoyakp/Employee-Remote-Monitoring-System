@@ -1,0 +1,44 @@
+{
+  "summary": "First full run. Backend: 30 pytest tests (24 new API + 6 existing validation) - 29 pass, 1 fails (unhandled bad date params give 500). Covered: 401 without token, role enforcement (employee 403 on dashboard/screenshots/import/settings PUT/audit-logs, manager scope = self + direct reports for employees/sessions/screenshots), unregistered Clerk user -> 403 not_registered (temporary Clerk user created then deleted), import preview statuses valid/error/duplicate/existing with row numbers + errors, commit without overwrite skips, overwrite updates, second commit 409, combined xlsx creates dept then maps employee+manager, manager column promotes role, .txt rejected + shown in history, templates csv/xlsx, tracking clock-in/heartbeat/break/clock-out + status values, maintenance auto-closes stale session as missed_logout, agent token/config/heartbeat, screenshot 403 when disabled -> 200 after admin enable -> 429 interval, image fetch admin 200 / manager 200 / employee 403, screenshot.view audit logs, reports daily/weekly/monthly + filters + csv/xlsx export, settings range validation, audit paging. Frontend (Clerk tickets): admin dashboard KPIs/live board, refresh keeps session, employees search, screenshot toggle, add/edit employee dialog, departments create/edit/delete, import wizard (upload -> preview tables -> overwrite checkbox -> confirm dialog -> summary), invalid file error, import history + detail dialog, attendance, activity timeline, screenshot gallery + lightbox, reports period tabs + CSV/XLSX download, audit paging, settings validation+save, agent token generate/copy. Employee: restricted sidebar, notice dialog + acknowledge, monitoring active/paused banners, clock out removes banner, /settings and /screenshots redirect to /my-day. Manager: scoped nav/board, /import redirect, sign-out returns to /sign-in. Mobile 390px: hamburger works, no horizontal overflow.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "GET /api/sessions?start=notadate and GET /api/activity/timeline?date=notadate", "issue": "Unhandled ValueError from datetime.fromisoformat -> 500. Should return 400 like /api/reports does (_parse_range)."},
+      {"endpoint": "POST /api/import/{id}/commit (overwrite_existing=true)", "issue": "Overwrite writes ALL fields even when the column is absent/blank in the file: designation becomes '', working_schedule resets to 'Mon-Fri 09:00-18:00', department falls back. A CSV with only the 3 required columns + overwrite silently wipes designation/schedule of existing employees. Only overwrite fields that are present & non-empty in the file (or document clearly)."},
+      {"endpoint": "POST /api/import/{id}/commit (overwrite)", "issue": "If overwrite changes an employee's email, clerk_user_id is NOT reset (PUT /api/employees does reset it). Old Clerk account stays linked to the record with new email."},
+      {"endpoint": "POST /api/import/{id}/commit", "issue": "No try/except around processing; any exception leaves the import stuck in status 'processing' forever (cannot retry, 409 on re-commit)."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Global header (clock widget)", "issues": ["Sonner toasts are positioned top-right and cover the header Break / Clock out buttons for ~4s after every clock action; clicks on those buttons are intercepted by the toast. Move toaster to bottom-right or offset it below the header."]},
+      {"screen": "Departments", "issues": ["Delete uses native window.confirm instead of shadcn AlertDialog (inconsistent with the import overwrite confirm dialog)."]},
+      {"screen": "Reports / Attendance / Activity / Screenshots", "issues": ["Date filters use native <input type=date> instead of shadcn Calendar/Popover date picker."]},
+      {"screen": "Import preview table", "issues": ["'Dept' column shows '—' when file only provides department_code (could show resolved department name)."]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_workpulse_api.py", "/app/backend/tests/conftest.py", "/app/test_reports/pytest/pytest_results.xml"],
+  "action_items": [
+    "Return 400 instead of 500 for invalid date strings in /api/sessions (start/end) and /api/activity/timeline (date)",
+    "Import overwrite: do not blank out designation/working_schedule/department when the column is missing or empty in the uploaded file",
+    "Import overwrite: reset clerk_user_id when email changes (parity with PUT /api/employees)",
+    "Import commit: wrap processing in try/except and set status 'failed' with error on exception",
+    "Move sonner Toaster so it does not overlap header clock controls",
+    "Optional: replace window.confirm (department delete) with AlertDialog; use shadcn date picker instead of native date inputs"
+  ],
+  "critical_code_review_comments": [
+    "clock buttons (clock-in/clock-out/break-start/break-end) share identical data-testids in header and My day widget (3 matches) - consider unique testids e.g. header-clock-in-button",
+    "importer.commit department overwrite uses unescaped regex f'^{code}$' - safe today only because CODE_RE restricts chars; prefer re.escape",
+    "seeded created_at and server clock show 2026-10-29 - fine, day buckets UTC as documented",
+    "Role enforcement, visible_ids scoping, agent token hashing, screenshot audit logging all verified correct"
+  ],
+  "updated_files": ["/app/backend/tests/test_workpulse_api.py", "/app/backend/tests/conftest.py"],
+  "success_rate": {"backend": "97% (29/30)", "frontend": "100% of tested flows"},
+  "test_credentials": "Used /app/memory/test_credentials.md accounts TEST_ADM/TEST_MGR/TEST_EMP via clerk_test_users.py --tokens (tickets are single-use; regenerate per browser session).",
+  "seed_data_creation": "Test-created TEST_I*/TEST_C* employees, TST* departments, TEST_UI1/TEST_UIADD employees and TSTUI dept were deleted. Two 1x1 PNG test screenshots uploaded for TEST_EMP were soft-deleted (is_deleted=true, deleted_reason=test_cleanup). Existing TEST_EMP screenshot taken_at was shifted back 5h to bypass the interval gate. TEST_EMP screenshots_enabled was True at start; left as False (default). Import history contains TEST_* import records. EMP001 was overwritten via UI import with identical values (got updated_at).",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Run backend tests serially: `cd /app/backend && python -m pytest tests/ -n 0` (tracking + agent tests share TEST_EMP session state; xdist -n 2 could race). conftest regenerates Clerk tokens automatically. For UI, run clerk_test_users.py --tokens before each browser session (ticket single-use) and open /sign-in?__clerk_ticket=<ticket>; script re-sets notice_acknowledged_at so unset it AFTER generating tokens to test the notice dialog. Scope clock button clicks with '[data-testid=\"my-day-page\"] ' prefix to avoid header duplicates/toast overlay. Department delete needs page.on('dialog', accept)."
+}

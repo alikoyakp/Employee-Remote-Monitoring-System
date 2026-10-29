@@ -32,6 +32,13 @@ class ClockIn(BaseModel):
     device: Optional[str] = None
 
 
+def parse_day(value):
+    try:
+        return datetime.fromisoformat(value).replace(tzinfo=timezone.utc)
+    except (ValueError, TypeError):
+        raise HTTPException(status_code=400, detail="Dates must be YYYY-MM-DD")
+
+
 def within_schedule(emp, t=None):
     try:
         tz = ZoneInfo(emp.get("timezone") or "UTC")
@@ -335,9 +342,9 @@ async def list_sessions(employee_id: Optional[str] = None, start: Optional[str] 
         allowed = [employee_id] if employee_id in emps else []
     q = {"employee_id": {"$in": allowed}}
     if start:
-        q.setdefault("start", {})["$gte"] = datetime.fromisoformat(start).replace(tzinfo=timezone.utc)
+        q.setdefault("start", {})["$gte"] = parse_day(start)
     if end:
-        q.setdefault("start", {})["$lt"] = datetime.fromisoformat(end).replace(tzinfo=timezone.utc) + timedelta(days=1)
+        q.setdefault("start", {})["$lt"] = parse_day(end) + timedelta(days=1)
     sessions = await db.sessions.find(q, {"_id": 0}).sort("start", -1).to_list(1000)
     sids = [s["id"] for s in sessions]
     br = {}
@@ -356,7 +363,8 @@ async def list_sessions(employee_id: Optional[str] = None, start: Optional[str] 
 @router.get("/activity/timeline")
 async def timeline(employee_id: str, date: str, member: dict = Depends(current_member)):
     await ensure_visible(member, employee_id)
-    day_start = datetime.fromisoformat(date).replace(tzinfo=timezone.utc)
+    day_start = parse_day(date)
+    date = day_start.date().isoformat()
     day_end = day_start + timedelta(days=1)
     minutes = await db.activity.find({"employee_id": employee_id, "day": date}, {"_id": 0, "employee_id": 0}).sort("minute", 1).to_list(2000)
     sessions = await db.sessions.find({"employee_id": employee_id, "start": {"$lt": day_end}, "$or": [{"end": None}, {"end": {"$gte": day_start}}]}, {"_id": 0}).to_list(100)

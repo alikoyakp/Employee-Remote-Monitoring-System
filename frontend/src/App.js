@@ -82,7 +82,7 @@ export default function App() {
           </Routes>
         </ClerkAuthProvider>
       </BrowserRouter>
-      <Toaster theme="dark" position="top-right" richColors />
+      <Toaster theme="dark" position="bottom-right" richColors />
     </div>
   );
 }

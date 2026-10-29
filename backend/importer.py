@@ -1,4 +1,4 @@
-from typing import Optional
+import re
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from fastapi.responses import Response
@@ -92,8 +92,17 @@ async def commit(import_id: str, body: CommitIn, admin: dict = Depends(require_r
     imp = await db.imports.find_one_and_update({"id": import_id, "status": "preview"}, {"$set": {"status": "processing"}})
     if not imp:
         raise HTTPException(status_code=409, detail="This import was already processed or does not exist")
+    try:
+        return await _commit(imp, body.overwrite_existing, admin)
+    except Exception as e:
+        await db.imports.update_one({"id": import_id}, {"$set": {"status": "failed", "error": f"Import failed: {e}"}})
+        await audit(admin, "import.failed", "import", import_id, {"error": str(e)})
+        raise HTTPException(status_code=500, detail="Import failed part-way. Check import history and re-upload the file.")
+
+
+async def _commit(imp, overwrite, admin):
+    import_id = imp["id"]
     raw, t = imp["raw"], now()
-    overwrite = body.overwrite_existing
     depts, emps = await _db_state()
     dept_res, _ = _validate(raw["departments"], None, depts, emps)
     dept_out = []
@@ -103,7 +112,7 @@ async def commit(import_id: str, body: CommitIn, admin: dict = Depends(require_r
             await db.departments.insert_one({"id": new_id(), "code": d["department_code"].upper(), "name": d["department_name"],
                                              "description": d["description"], "created_at": t, "import_id": import_id})
         elif r["status"] == "existing" and overwrite:
-            await db.departments.update_one({"code": {"$regex": f"^{d['department_code']}$", "$options": "i"}},
+            await db.departments.update_one({"code": {"$regex": f"^{re.escape(d['department_code'])}$", "$options": "i"}},
                                             {"$set": {"name": d["department_name"], "description": d["description"]}})
             outcome = "updated"
         r["outcome"] = outcome
@@ -126,9 +135,15 @@ async def commit(import_id: str, body: CommitIn, admin: dict = Depends(require_r
                                                "role": d["role"] or "employee", "status": "active", "screenshots_enabled": False,
                                                "clerk_user_id": None, "created_at": t, "import_id": import_id})
             elif r["status"] == "existing" and overwrite:
+                raw_row = next((x for x in raw["employees"] if x["_row"] == r["row"]), {})
+                upd = {k: v for k, v in fields.items() if k in ("employee_id", "full_name", "email") or (v and (k != "working_schedule" or raw_row.get("working_schedule")))}
                 if d["role"]:
-                    fields["role"] = d["role"]
-                await db.employees.update_one({"id": by_eid[d["employee_id"].lower()]}, {"$set": {**fields, "updated_at": t}})
+                    upd["role"] = d["role"]
+                emp_id = by_eid[d["employee_id"].lower()]
+                current = await db.employees.find_one({"id": emp_id}, {"_id": 0, "email": 1})
+                if current and current.get("email") != upd["email"]:
+                    upd["clerk_user_id"] = None
+                await db.employees.update_one({"id": emp_id}, {"$set": {**upd, "updated_at": t}})
                 outcome = "updated"
             r["outcome"] = outcome
             emp_out.append(outcome)

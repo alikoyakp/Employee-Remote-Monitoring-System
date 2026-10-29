@@ -93,12 +93,12 @@ export function AppShell({ children }) {
             {new Date().toLocaleDateString([], { weekday: "long", month: "long", day: "numeric" })}
           </div>
           <div className="flex items-center gap-3">
-            <div className="hidden sm:block"><ClockWidget /></div>
+            <div className="hidden sm:block"><ClockWidget prefix="header-" /></div>
             <UserButton />
           </div>
         </header>
         <main className="mx-auto max-w-[1400px] p-4 sm:p-6 lg:p-8">
-          <div className="mb-4 sm:hidden"><ClockWidget /></div>
+          <div className="mb-4 sm:hidden"><ClockWidget prefix="mobile-" /></div>
           <MonitoringBanner />
           {children}
         </main>
