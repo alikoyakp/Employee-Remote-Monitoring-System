@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""WorkPulse desktop agent.
+"""ERM System desktop agent.
 
 Runs on the employee's computer while they work. It:
   * counts mouse movements, clicks and key presses (never WHICH keys, never typed text or passwords)
@@ -8,7 +8,7 @@ Runs on the employee's computer while they work. It:
     enabled for this employee, they are clocked in, not on a break and inside their working schedule
 
 Install:   pip install requests pynput mss pillow
-Run:       python workpulse_agent.py --server https://YOUR-APP-URL --token wpa_xxx [--clock-in] [--clock-out-on-exit]
+Run:       python erm_agent.py --server https://YOUR-APP-URL --token wpa_xxx [--clock-in] [--clock-out-on-exit]
 
 Permissions: macOS needs Screen Recording + Accessibility (Input Monitoring) for the terminal/python.
 Linux needs an X11 session (Wayland blocks global input hooks and screenshots).
@@ -89,8 +89,8 @@ def grab_screenshot():
 
 
 def main():
-    p = argparse.ArgumentParser(description="WorkPulse desktop agent")
-    p.add_argument("--server", required=True, help="WorkPulse web address, e.g. https://example.com")
+    p = argparse.ArgumentParser(description="ERM System desktop agent")
+    p.add_argument("--server", required=True, help="ERM System web address, e.g. https://example.com")
     p.add_argument("--token", required=True, help="Agent token from the 'Desktop agent' page")
     p.add_argument("--clock-in", action="store_true", help="Clock in when the agent starts")
     p.add_argument("--clock-out-on-exit", action="store_true", help="Clock out when the agent stops")
@@ -98,7 +98,7 @@ def main():
     a = p.parse_args()
     api = a.server.rstrip("/") + "/api/agent"
     s = requests.Session()
-    s.headers.update({"X-Agent-Token": a.token, "User-Agent": f"WorkPulseAgent/1.0 ({platform.system()})"})
+    s.headers.update({"X-Agent-Token": a.token, "User-Agent": f"ERMSystemAgent/1.0 ({platform.system()})"})
     device = platform.node() or "desktop"
 
     r = s.get(f"{api}/config", timeout=20)
@@ -107,7 +107,7 @@ def main():
     r.raise_for_status()
     cfg = r.json()
     print("=" * 70)
-    print(f"WorkPulse agent for {cfg['employee']['full_name']} ({cfg['employee']['employee_id']})")
+    print(f"ERM System agent for {cfg['employee']['full_name']} ({cfg['employee']['employee_id']})")
     print("MONITORING NOTICE:\n" + cfg["monitoring_notice"])
     print(f"Screenshots for your account: {'ENABLED' if cfg['screenshots_enabled'] else 'disabled'}")
     print("=" * 70)

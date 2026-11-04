@@ -27,7 +27,7 @@ export default function Reports() {
   }, [load]);
   const exp = async (format) => {
     try {
-      await downloadFile(api, "/reports/export", { ...params, format }, `workpulse_${f.period}_${f.start}_${f.end}.${format}`);
+      await downloadFile(api, "/reports/export", { ...params, format }, `erm_system_${f.period}_${f.start}_${f.end}.${format}`);
       toast.success(`Exported ${format.toUpperCase()}`);
     } catch (e) {
       toast.error(await blobError(e));

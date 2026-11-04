@@ -22,7 +22,7 @@ function Templates({ kind }) {
   const api = useApi();
   const dl = async (fmt) => {
     try {
-      await downloadFile(api, `/import/template/${kind}`, { format: fmt }, `workpulse_${kind}_template.${fmt}`);
+      await downloadFile(api, `/import/template/${kind}`, { format: fmt }, `erm_system_${kind}_template.${fmt}`);
     } catch (e) {
       toast.error(await blobError(e));
     }

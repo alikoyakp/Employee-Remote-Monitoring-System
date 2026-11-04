@@ -24,7 +24,7 @@ from seed import seed_sample_data  # noqa: E402
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="WorkPulse API")
+app = FastAPI(title="ERM System API")
 
 
 @app.get("/api/health")

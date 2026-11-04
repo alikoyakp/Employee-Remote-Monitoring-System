@@ -59,7 +59,7 @@ function Brand() {
       <div className="px-1 py-2">
         <img src="/logo.png" alt="Al Arabia - Arabian Contracting Services" className="h-auto w-[60%]" />
       </div>
-      <div className="mt-2 px-1 font-mono text-[11px] uppercase tracking-widest text-muted-foreground">WorkPulse</div>
+      <div className="mt-2 px-1 font-mono text-[11px] uppercase tracking-widest text-muted-foreground">ERM System</div>
     </div>
   );
 }

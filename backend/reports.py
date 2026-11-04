@@ -176,7 +176,7 @@ async def export_report(format: str = "csv", period: str = "daily", start: Optio
         r = {**r, "worked_h": round(r["worked_min"] / 60, 2), "active_h": round(r["active_min"] / 60, 2),
              "idle_h": round(r["idle_min"] / 60, 2), "break_h": round(r["break_min"] / 60, 2)}
         data.append([r.get(k) if r.get(k) is not None else "" for k, _ in EXPORT_COLS])
-    fname = f"workpulse_{period}_{rep['start']}_{rep['end']}"
+    fname = f"erm_system_{period}_{rep['start']}_{rep['end']}"
     if format == "xlsx":
         wb = Workbook()
         ws = wb.active

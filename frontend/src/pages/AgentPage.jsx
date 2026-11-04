@@ -10,7 +10,7 @@ const SERVER = API.replace(/\/api$/, "");
 const NEEDS_AGENT = [
   "Full-desktop screenshots (browsers cannot capture the screen silently)",
   "Mouse / click / key activity counts across all applications, not only this tab",
-  "Activity tracking while the WorkPulse tab is closed",
+  "Activity tracking while the ERM System tab is closed",
 ];
 
 function Copyable({ text, testId }) {
@@ -46,12 +46,12 @@ export default function AgentPage() {
   };
   const download = async () => {
     try {
-      await downloadFile(api, "/agent/download", {}, "workpulse_agent.py");
+      await downloadFile(api, "/agent/download", {}, "erm_agent.py");
     } catch (e) {
       toast.error(await blobError(e));
     }
   };
-  const cmd = `python workpulse_agent.py --server ${SERVER} --token ${token || "<YOUR_TOKEN>"} --clock-in --clock-out-on-exit`;
+  const cmd = `python erm_agent.py --server ${SERVER} --token ${token || "<YOUR_TOKEN>"} --clock-in --clock-out-on-exit`;
   return (
     <div data-testid="agent-page">
       <PageHeader title="Desktop agent" subtitle="A small separately-installed program for full-desktop activity and screenshots." />

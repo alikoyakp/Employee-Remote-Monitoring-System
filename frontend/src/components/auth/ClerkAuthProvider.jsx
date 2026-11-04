@@ -51,6 +51,10 @@ export default function ClerkAuthProvider({ children }) {
       signInFallbackRedirectUrl="/"
       signUpFallbackRedirectUrl="/"
       afterSignOutUrl="/"
+      localization={{
+        signIn: { start: { title: "Continue to ERM System", titleCombined: "Continue to ERM System" } },
+        signUp: { start: { title: "Create your ERM System account", titleCombined: "Create your ERM System account" } },
+      }}
     >
       {children}
     </ClerkProvider>

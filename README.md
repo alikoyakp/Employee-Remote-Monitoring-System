@@ -1,4 +1,4 @@
-# WorkPulse – Employee Tracking & Monitoring
+# ERM System – Employee Tracking & Monitoring
 
 Full-stack employee attendance, activity monitoring and reporting for office and remote teams.
 
@@ -15,7 +15,7 @@ Full-stack employee attendance, activity monitoring and reporting for office and
 | Auth | Emergent-managed Clerk (email + password). Roles (admin / manager / employee) stored in MongoDB and enforced server-side |
 | Screenshot storage | Emergent private object storage; images only served through an authorised, audit-logged backend endpoint |
 | Background jobs | Platform cron `.emergent/crons.yml` → `POST /api/cron/maintenance` every 15 min (missed-logout auto-close, screenshot & activity retention) |
-| Desktop agent | `backend/agent_dist/workpulse_agent.py` (download from the "Desktop agent" page) |
+| Desktop agent | `backend/agent_dist/erm_agent.py` (download from the "Desktop agent" page) |
 
 ### Backend modules
 - `core.py` – DB, role resolution (`current_member`, `require_role`, `visible_ids`), audit, storage helpers
@@ -35,11 +35,11 @@ Full-stack employee attendance, activity monitoring and reporting for office and
 
 ## Features requiring the separately installed desktop agent
 1. Full-desktop screenshots (browsers cannot capture the screen silently).
-2. Mouse/click/key activity counts across all applications (the browser only sees activity inside the WorkPulse tab).
-3. Tracking while the WorkPulse tab is closed.
+2. Mouse/click/key activity counts across all applications (the browser only sees activity inside the ERM System tab).
+3. Tracking while the ERM System tab is closed.
 
 Agent install: `pip install requests pynput mss pillow`, generate a token on the Desktop agent page, then
-`python workpulse_agent.py --server https://<app-url> --token wpa_xxx --clock-in --clock-out-on-exit`.
+`python erm_agent.py --server https://<app-url> --token wpa_xxx --clock-in --clock-out-on-exit`.
 The agent never records which keys are pressed – only counts. It only sends data while the employee is clocked in and not on a break,
 and screenshots only when enabled for that employee **and** inside their working schedule.
 

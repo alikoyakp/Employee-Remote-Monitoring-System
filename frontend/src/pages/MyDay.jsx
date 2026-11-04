@@ -53,7 +53,7 @@ export default function MyDay() {
           <ul className="space-y-2 text-sm text-muted-foreground">
             <li>• Only while you are clocked in and not on a break.</li>
             <li>• Counts of mouse movements, clicks and key presses - never which keys or what you type.</li>
-            <li>• In the browser, only activity inside this WorkPulse tab is counted. Install the desktop agent to count activity across your whole computer.</li>
+            <li>• In the browser, only activity inside this ERM System tab is counted. Install the desktop agent to count activity across your whole computer.</li>
           </ul>
         </Panel>
         <Panel title="Screenshots" testId="screenshot-info-panel">

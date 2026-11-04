@@ -17,7 +17,7 @@ from core import (APP_NAME, agent_member, audit, aware, clean, current_member, d
 from validation import in_schedule
 
 router = APIRouter(prefix="/api")
-AGENT_FILE = Path(__file__).parent / "agent_dist" / "workpulse_agent.py"
+AGENT_FILE = Path(__file__).parent / "agent_dist" / "erm_agent.py"
 
 
 class Heartbeat(BaseModel):
@@ -231,7 +231,7 @@ async def admin_revoke_agent(emp_id: str, admin: dict = Depends(require_role("ad
 
 @router.get("/agent/download")
 async def download_agent():
-    return FileResponse(AGENT_FILE, filename="workpulse_agent.py", media_type="text/x-python")
+    return FileResponse(AGENT_FILE, filename="erm_agent.py", media_type="text/x-python")
 
 
 # Desktop agent API (X-Agent-Token)

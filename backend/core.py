@@ -34,7 +34,7 @@ DEFAULT_SETTINGS = {
         "This organisation monitors work activity while you are clocked in. We record login/logout times, "
         "counts of mouse movements, clicks and key presses (never the keys you type, passwords or content), "
         "idle and break time, and - only if enabled by an administrator for your account - periodic screenshots "
-        "captured by the WorkPulse desktop agent. Monitoring stops when you clock out or take a break. "
+        "captured by the ERM System desktop agent. Monitoring stops when you clock out or take a break. "
         "Screenshots are visible only to administrators and your reporting manager and are deleted automatically."
     ),
 }

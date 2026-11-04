@@ -46,7 +46,7 @@ async def template(kind: str, format: str = "csv", admin: dict = Depends(require
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     media = "text/csv" if format == "csv" else "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    return Response(data, media_type=media, headers={"Content-Disposition": f'attachment; filename="workpulse_{kind}_template.{format}"'})
+    return Response(data, media_type=media, headers={"Content-Disposition": f'attachment; filename="erm_system_{kind}_template.{format}"'})
 
 
 @router.post("/preview")
