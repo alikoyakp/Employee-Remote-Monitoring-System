@@ -55,9 +55,11 @@ function NavList({ onNavigate }) {
 
 function Brand() {
   return (
-    <div className="flex items-center gap-2 px-3">
-      <div className="grid h-8 w-8 place-items-center rounded-lg bg-indigo-500 font-heading font-bold text-white">W</div>
-      <span className="font-heading text-lg font-semibold tracking-tight">WorkPulse</span>
+    <div className="px-3" data-testid="brand-logo">
+      <div className="rounded-lg bg-white px-3 py-2">
+        <img src="/logo.png" alt="Al Arabia - Arabian Contracting Services" className="h-auto w-full" />
+      </div>
+      <div className="mt-2 px-1 font-mono text-[11px] uppercase tracking-widest text-muted-foreground">WorkPulse</div>
     </div>
   );
 }
@@ -87,7 +89,7 @@ export function AppShell({ children }) {
                 <div className="mt-6 px-3"><NavList onNavigate={() => setOpen(false)} /></div>
               </SheetContent>
             </Sheet>
-            <span className="font-heading font-semibold">WorkPulse</span>
+            <img src="/logo-mark.png" alt="Al Arabia" className="h-8 w-8 rounded-md bg-white p-0.5" data-testid="mobile-brand-logo" />
           </div>
           <div className="hidden text-sm text-muted-foreground lg:block">
             {new Date().toLocaleDateString([], { weekday: "long", month: "long", day: "numeric" })}
