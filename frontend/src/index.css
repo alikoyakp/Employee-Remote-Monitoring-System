@@ -12,7 +12,7 @@
         --card-foreground: 210 20% 98%;
         --popover: 221 39% 11%;
         --popover-foreground: 210 20% 98%;
-        --primary: 239 84% 67%;
+        --primary: 251 28% 50%;
         --primary-foreground: 0 0% 100%;
         --secondary: 215 28% 17%;
         --secondary-foreground: 210 20% 98%;
@@ -24,11 +24,11 @@
         --destructive-foreground: 0 0% 98%;
         --border: 217 19% 17%;
         --input: 217 19% 20%;
-        --ring: 239 84% 67%;
+        --ring: 251 28% 50%;
         --chart-1: 160 84% 39%;
         --chart-2: 38 92% 50%;
         --chart-3: 217 91% 60%;
-        --chart-4: 239 84% 67%;
+        --chart-4: 251 28% 50%;
         --chart-5: 25 95% 53%;
         --radius: 0.75rem;
     }
@@ -50,7 +50,7 @@
         font-family: "JetBrains Mono", monospace;
     }
     ::selection {
-        background: hsl(239 84% 67% / 0.35);
+        background: hsl(251 28% 50% / 0.4);
     }
 }
 

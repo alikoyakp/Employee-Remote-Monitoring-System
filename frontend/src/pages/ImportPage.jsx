@@ -117,7 +117,7 @@ export default function ImportPage() {
       {step === 1 && (
         <Panel title="1. Choose what to import" testId="import-step-upload">
           <Tabs value={kind} onValueChange={setKind}>
-            <TabsList>{KINDS.map(([k, l]) => <TabsTrigger key={k} value={k} data-testid={`import-kind-${k}`}>{l}</TabsTrigger>)}</TabsList>
+            <TabsList className="h-auto flex-wrap">{KINDS.map(([k, l]) => <TabsTrigger key={k} value={k} data-testid={`import-kind-${k}`}>{l}</TabsTrigger>)}</TabsList>
           </Tabs>
           <p className="mt-3 text-sm text-muted-foreground">
             {kind === "departments" && "Columns: department_code, department_name, description."}

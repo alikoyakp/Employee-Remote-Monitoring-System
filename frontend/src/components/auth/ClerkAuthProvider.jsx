@@ -6,7 +6,9 @@ import { dark } from "@clerk/ui/themes";
 const appearance = {
   theme: dark,
   variables: {
-    colorPrimary: "#6366F1",
+    colorPrimary: "#6A5DA4",
+    colorPrimaryForeground: "#FFFFFF",
+    colorTextOnPrimaryBackground: "#FFFFFF",
     colorBackground: "#111827",
     colorInput: "#0B0F17",
     fontFamily: "Plus Jakarta Sans, sans-serif",
