@@ -65,6 +65,18 @@ python tests/clerk_test_users.py --tokens         # create dev test users and pr
 ```
 
 ## Deployment
+Environment templates: `backend/env.example` and `frontend/env.example` (copy to `.env` and fill in real values).
+
+| Variable | Where | Purpose |
+|---|---|---|
+| MONGO_URL / DB_NAME | backend | MongoDB connection and database name |
+| CORS_ORIGINS | backend | Comma-separated allowed frontend origins |
+| CLERK_PUBLISHABLE_KEY / CLERK_SECRET_KEY | backend | Sign-in (Clerk). Emergent-managed when deployed on Emergent; self-hosting needs your own Clerk app |
+| ADMIN_EMAIL | backend | Email(s) that become admin on first sign-in |
+| WEBHOOK_CRON_SECRET | backend | Bearer secret for POST /api/cron/maintenance (call it every 15 min) |
+| EMERGENT_LLM_KEY | backend | Unlocks Emergent object storage for screenshots |
+| REACT_APP_BACKEND_URL | frontend | Public URL of the backend (routes are under /api) |
+
 Use the platform **Deploy** button. Production gets HTTPS, a production Clerk instance and the cron schedule automatically.
 Required backend env: `MONGO_URL`, `DB_NAME`, `CLERK_*` (managed), `ADMIN_EMAIL`, `WEBHOOK_CRON_SECRET`, `EMERGENT_LLM_KEY` (object storage).
 After deploying, the first admin signs up on the live app with the `ADMIN_EMAIL` address.
