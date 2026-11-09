@@ -1,0 +1,39 @@
+{
+  "summary": "Re-tested the iteration_3 auth fixes and the move to Bearer tokens. Backend: 51/51 pytest pass: the 45 existing tests plus 6 new ones in tests/test_auth_fixes.py covering the XFF bypass, the per-email lock, the TTL index, link-info for a deleted employee, Bearer login and refresh by body, and the CORS preflight from the 1c87 host. In the first run 1 test failed: TestInactive was fragile because it relied on another class running first under xdist. I made it self-contained (test-only change). Frontend: on BOTH hosts (1c87bdcc... where the frontend and API hosts differ, and the REACT_APP_BACKEND_URL host) these work: login (wrong password shows an error), reload keeps the session, sign out goes to /login and erm_session is removed from localStorage, and the session stays signed out after reload. The 'Network Error' from iteration_3 is gone. Silent refresh works (tested on the 1c87 host, where no cookies are sent): with access_token removed, or set to garbage, the app calls /auth/refresh, saves a new access_token and stays signed in. With both tokens invalid it clears storage and goes to /login. Set-password link flow: key icon -> link dialog -> new browser context -> mismatch error -> success, then signed in. Change password: the confirm field and the mismatch toast work; wrong current password, weak password and success toasts all appear; the session survives a reload after the change; the old password is rejected and the new one works.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "core.current_member", "issue": "The cookie is read BEFORE the Authorization header. When the frontend and API are on the same origin (the REACT_APP_BACKEND_URL host in preview, or a same-domain deployment), the browser sends the httpOnly cookie automatically, and it overrides the Bearer token. An explicit Bearer header should win."},
+      {"endpoint": "auth.py set_session / cookies", "issue": "The frontend no longer needs cookies, but login, refresh and change-password still set SameSite=None cookies, and current_member still accepts them. With CORS_ORIGINS='*', origin_guard is turned off, so a cross-site request can still carry the user's cookies (CSRF). Consider removing the cookie fallback, or at least setting CORS_ORIGINS explicitly in production."},
+      {"endpoint": "POST /api/auth/login (brute force)", "issue": "Behind the ingress, request.client.host is always the proxy pod IP (seen: 10.64.128.135), so the ip+email key acts the same as the email key. The per-email lock also lets anyone lock a known user (including the owner/admin) out for 15 min by sending 5 bad passwords. This is a known trade-off; consider showing the remaining lock time or adding an admin unlock."},
+      {"endpoint": "login_attempts", "issue": "The 'identifier' index is not unique, so concurrent upserts could create duplicate rows (low impact)."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {"flow": "api.js refresh interceptor", "issue": "Any refresh failure, including a network error or a 5xx, calls clearTokens(), so a brief outage signs the user out. Only clear the tokens on a 401 from /auth/refresh.", "affected_selectors": []}
+    ],
+    "design_issues": [
+      {"screen": "Change password dialog", "issues": ["The fields are not cleared when the dialog is closed without saving (Escape or X); reopening shows the old values. Minor."]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_auth.py", "/app/backend/tests/test_auth_fixes.py", "/app/test_reports/pytest/pytest_results.xml"],
+  "action_items": [
+    "core.current_member: prefer the Authorization Bearer header over the cookie (or drop cookie auth now that the frontend uses Bearer tokens).",
+    "Production: set CORS_ORIGINS to explicit origins, or remove the cookie fallback to close the CSRF surface.",
+    "api.js: only clearTokens() when /auth/refresh returns 401, not on network or 5xx errors.",
+    "Optional: reset the Change password dialog fields when it closes; consider an admin unlock for per-email lockouts."
+  ],
+  "critical_code_review_comments": [
+    "Verified fixed: _ip() no longer trusts X-Forwarded-For (7 spoofed-XFF attempts -> 401 x5 then 429); per-email lock row 'email:<addr>' is created; TTL index updated_at (86400s) exists; link-info and set-password return 400 for a deleted employee; login, set-password and change-password return access_token and refresh_token; /auth/refresh accepts the body and rejects access tokens and garbage.",
+    "The shared 'refreshing' promise in api.js correctly avoids parallel refresh storms.",
+    "Tokens in localStorage can be read by XSS; this is acceptable given the cross-host setup, but keep the CSP and dependency hygiene strict."
+  ],
+  "updated_files": ["/app/backend/tests/test_auth.py (TestInactive made self-contained)", "/app/backend/tests/test_auth_fixes.py (new)"],
+  "success_rate": {"backend": "100% (51/51)", "frontend": "100% of requested auth flows on both hosts"},
+  "seed_data_creation": "Temporary: TEST_UI4 (UI test), TEST_FIX_<hex> / TEST_DEL_<hex> / TEST_AUTH_<hex> (pytest fixtures), plus their password_tokens and audit_logs. All deleted by id. login_attempts is empty at the end, so no unfiltered delete was needed. TEST_ADM/MGR/EMP passwords were not changed (password_version still 1). The owner and seed admin accounts were not touched.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Run: cd /app/backend && pytest tests/ (51 tests). Silent refresh must be tested on the 1c87 host (cross-site, so no cookies are sent); on the REACT_APP_BACKEND_URL host the same-origin cookie hides missing tokens. New employees see a monitoring-notice-dialog on first login: click acknowledge-notice-button before using the user menu."
+}

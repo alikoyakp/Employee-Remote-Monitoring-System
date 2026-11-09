@@ -13,7 +13,7 @@ Build an Employee Tracking and Monitoring System — professional full-stack sys
 User choices: build on platform stack; email + password login; downloadable desktop agent + browser tracking; screenshot retention 30 days; admin enables/disables screenshots per user (default disabled).
 
 ## Architecture
-React (CRA) + Tailwind/shadcn · FastAPI (`core`, `validation`, `routes_org`, `importer`, `tracking`, `reports`, `seed`) · MongoDB · Emergent-managed Clerk auth with roles in Mongo · Emergent object storage for screenshots · platform cron (`/api/cron/maintenance`, every 15 min) · Python desktop agent (`backend/agent_dist/workpulse_agent.py`, X-Agent-Token).
+React (CRA) + Tailwind/shadcn · FastAPI (`core`, `auth`, `validation`, `routes_org`, `importer`, `tracking`, `reports`, `seed`) · MongoDB · built-in email/password auth (bcrypt + JWT Bearer tokens, admin login links) · Emergent object storage for screenshots · platform cron (`/api/cron/maintenance`, every 15 min) · Python desktop agent (`backend/agent_dist/workpulse_agent.py`, X-Agent-Token).
 
 ## User personas
 - Admin (HR/ops): manages org, imports, settings, sees everything.
@@ -36,4 +36,7 @@ React (CRA) + Tailwind/shadcn · FastAPI (`core`, `validation`, `routes_org`, `i
 - P2: email digests of daily attendance; per-department screenshot policies
 
 ## Next tasks
-- User signs up with alikoyakp@gmail.com, imports real employees, reviews settings
+- User signs in with mishalmmofficial@gmail.com and imports real employees
+
+## Changelog
+- 2026-11-09: Al Arabia logo, renamed to ERM System, colour #6A5DA4, env templates; replaced Clerk with built-in login (ADMIN_EMAIL/ADMIN_PASSWORD seed, one-time login links, change password, per-email brute-force lock, Bearer tokens)

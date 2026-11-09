@@ -36,8 +36,8 @@ api.interceptors.response.use(
         refreshing = refreshing || api.post("/auth/refresh", { refresh_token: rt }).then((r) => saveTokens(r.data)).finally(() => { refreshing = null; });
         await refreshing;
         return api(cfg);
-      } catch {
-        clearTokens();
+      } catch (e) {
+        if (e?.response?.status === 401) clearTokens();
       }
     }
     return Promise.reject(error);

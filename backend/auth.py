@@ -42,10 +42,7 @@ def check_strength(pw):
 
 
 def set_session(response, emp):
-    access, refresh_tok = create_token(emp, "access"), create_token(emp, "refresh")
-    response.set_cookie("access_token", access, max_age=15 * 60, **COOKIE)
-    response.set_cookie("refresh_token", refresh_tok, max_age=7 * 86400, **COOKIE)
-    return {"ok": True, "access_token": access, "refresh_token": refresh_tok}
+    return {"ok": True, "access_token": create_token(emp, "access"), "refresh_token": create_token(emp, "refresh")}
 
 
 def _ip(request):
@@ -94,13 +91,11 @@ async def logout(response: Response):
 
 @router.post("/refresh")
 async def refresh(request: Request, response: Response, body: Optional[RefreshIn] = None):
-    token = (body.refresh_token if body else "") or request.cookies.get("refresh_token")
+    token = body.refresh_token if body else ""
     if not token:
         raise HTTPException(status_code=401, detail="Not signed in")
     emp = await employee_from_token(token, "refresh")
-    access = create_token(emp, "access")
-    response.set_cookie("access_token", access, max_age=15 * 60, **COOKIE)
-    return {"ok": True, "access_token": access}
+    return {"ok": True, "access_token": create_token(emp, "access")}
 
 
 async def _apply_password(emp, password):

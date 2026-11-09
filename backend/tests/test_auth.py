@@ -17,6 +17,11 @@ def new_session():
     return s
 
 
+def bearer(s, r):
+    s.headers["Authorization"] = f"Bearer {r.json()['access_token']}"
+    return r
+
+
 @pytest.fixture(scope="module")
 def throwaway(admin, mongo):
     """TEST_ employee created via API; removed (by id) with its tokens/attempts afterwards."""
@@ -38,12 +43,13 @@ class TestLogin:
         doc = mongo.employees.find_one({"email": ADMIN_EMAIL}, {"password_hash": 1})
         assert doc["password_hash"].startswith("$2b$")
 
-    def test_login_sets_httponly_cookies(self, tokens):
+    def test_login_returns_tokens_no_cookies(self, tokens):
         s = new_session()
         r = s.post(f"{BASE_URL}/api/auth/login", json={"email": ADMIN_EMAIL, "password": PW})
         assert r.status_code == 200 and r.json()["ok"] is True and r.json()["access_token"] and r.json()["refresh_token"]
-        raw = r.headers.get("set-cookie", "").lower()
-        assert "access_token=" in raw and "refresh_token=" in raw and "httponly" in raw and "samesite=none" in raw and "secure" in raw
+        assert "access_token=" not in r.headers.get("set-cookie", "")
+        assert s.get(f"{BASE_URL}/api/me").status_code == 401
+        bearer(s, r)
         me = s.get(f"{BASE_URL}/api/me")
         assert me.status_code == 200 and me.json()["email"] == ADMIN_EMAIL
         assert "password_hash" not in me.json()
@@ -76,26 +82,21 @@ class TestLogin:
 class TestRefreshLogout:
     def test_refresh_and_logout(self, tokens):
         s = new_session()
-        assert s.post(f"{BASE_URL}/api/auth/login", json={"email": ADMIN_EMAIL, "password": PW}).status_code == 200
-        refresh = s.cookies.get("refresh_token")
+        r = s.post(f"{BASE_URL}/api/auth/login", json={"email": ADMIN_EMAIL, "password": PW})
+        assert r.status_code == 200
         s2 = new_session()
-        s2.cookies.set("refresh_token", refresh)
-        r = s2.post(f"{BASE_URL}/api/auth/refresh")
-        assert r.status_code == 200 and "access_token=" in r.headers.get("set-cookie", "")
+        r2 = s2.post(f"{BASE_URL}/api/auth/refresh", json={"refresh_token": r.json()["refresh_token"]})
+        assert r2.status_code == 200 and r2.json()["access_token"]
+        bearer(s2, r2)
         assert s2.get(f"{BASE_URL}/api/me").status_code == 200
-        out = s.post(f"{BASE_URL}/api/auth/logout")
-        assert out.status_code == 200
-        raw = out.headers.get("set-cookie", "")
-        assert "access_token=" in raw and "refresh_token=" in raw and ("Max-Age=0" in raw or "expires=" in raw.lower())
-        assert s.get(f"{BASE_URL}/api/me").status_code == 401
+        assert s.post(f"{BASE_URL}/api/auth/logout").status_code == 200
 
-    def test_refresh_without_cookie(self):
+    def test_refresh_without_token(self):
         assert requests.post(f"{BASE_URL}/api/auth/refresh").status_code == 401
 
     def test_access_token_cannot_refresh(self, tokens):
-        s = new_session()
-        s.cookies.set("refresh_token", tokens["TEST_ADM"]["token"])
-        assert s.post(f"{BASE_URL}/api/auth/refresh").status_code == 401
+        r = new_session().post(f"{BASE_URL}/api/auth/refresh", json={"refresh_token": tokens["TEST_ADM"]["token"]})
+        assert r.status_code == 401
 
 
 class TestPasswordLinks:
@@ -115,6 +116,7 @@ class TestPasswordLinks:
         s = new_session()
         r = s.post(f"{BASE_URL}/api/auth/set-password", json={"token": tok2, "password": "Valid-pass-1"})
         assert r.status_code == 200
+        bearer(s, r)
         assert s.get(f"{BASE_URL}/api/me").json()["email"] == throwaway["email"]
         # reuse
         assert requests.post(f"{BASE_URL}/api/auth/set-password", json={"token": tok2, "password": "Valid-pass-2"}).status_code == 400
@@ -133,27 +135,33 @@ class TestChangePassword:
         # ensure password exists (from link flow or set directly via a fresh link)
         tok = admin.post(f"{BASE_URL}/api/auth/password-link/{throwaway['id']}").json()["path"].split("token=")[1]
         s = new_session()
-        assert s.post(f"{BASE_URL}/api/auth/set-password", json={"token": tok, "password": "Valid-pass-1"}).status_code == 200
-        old_access = s.cookies.get("access_token")
-        old_refresh = s.cookies.get("refresh_token")
+        sp = s.post(f"{BASE_URL}/api/auth/set-password", json={"token": tok, "password": "Valid-pass-1"})
+        assert sp.status_code == 200
+        bearer(s, sp)
+        old_access = sp.json()["access_token"]
+        old_refresh = sp.json()["refresh_token"]
         bad = s.post(f"{BASE_URL}/api/auth/change-password", json={"current_password": "wrong-1", "new_password": "Another-pass-2"})
         assert bad.status_code == 400
         weak = s.post(f"{BASE_URL}/api/auth/change-password", json={"current_password": "Valid-pass-1", "new_password": "abcdefgh"})
         assert weak.status_code == 400
         ok = s.post(f"{BASE_URL}/api/auth/change-password", json={"current_password": "Valid-pass-1", "new_password": "Another-pass-2"})
         assert ok.status_code == 200
-        assert s.get(f"{BASE_URL}/api/me").status_code == 200  # new cookies
+        bearer(s, ok)
+        assert s.get(f"{BASE_URL}/api/me").status_code == 200
         assert requests.get(f"{BASE_URL}/api/me", headers={"Authorization": f"Bearer {old_access}"}).status_code == 401
-        s_old = new_session()
-        s_old.cookies.set("refresh_token", old_refresh)
-        assert s_old.post(f"{BASE_URL}/api/auth/refresh").status_code == 401
+        assert requests.post(f"{BASE_URL}/api/auth/refresh", json={"refresh_token": old_refresh}).status_code == 401
         assert new_session().post(f"{BASE_URL}/api/auth/login", json={"email": throwaway["email"], "password": "Another-pass-2"}).status_code == 200
 
 
 class TestInactive:
     def test_inactive_cannot_login(self, admin, throwaway, mongo):
+        # self-contained: give the throwaway a password via a fresh link (classes may run on different xdist workers)
+        tok = admin.post(f"{BASE_URL}/api/auth/password-link/{throwaway['id']}").json()["path"].split("token=")[1]
+        assert requests.post(f"{BASE_URL}/api/auth/set-password", json={"token": tok, "password": "Another-pass-2"}).status_code == 200
         s = new_session()
-        assert s.post(f"{BASE_URL}/api/auth/login", json={"email": throwaway["email"], "password": "Another-pass-2"}).status_code == 200
+        lr = s.post(f"{BASE_URL}/api/auth/login", json={"email": throwaway["email"], "password": "Another-pass-2"})
+        assert lr.status_code == 200
+        bearer(s, lr)
         body = {k: throwaway[k] for k in ("employee_id", "full_name", "email")}
         body.update(role="employee", status="inactive")
         assert admin.put(f"{BASE_URL}/api/employees/{throwaway['id']}", json=body).status_code == 200
@@ -162,12 +170,3 @@ class TestInactive:
         assert r.status_code == 401
         assert admin.post(f"{BASE_URL}/api/auth/password-link/{throwaway['id']}").status_code == 400
         mongo.login_attempts.delete_many({"identifier": {"$regex": throwaway["email"]}})
-
-
-class TestOriginGuard:
-    def test_foreign_origin_with_cookie(self, tokens):
-        s = new_session()
-        s.post(f"{BASE_URL}/api/auth/login", json={"email": ADMIN_EMAIL, "password": PW})
-        r = s.post(f"{BASE_URL}/api/auth/logout", headers={"Origin": "https://evil.example"})
-        # informational: only enforced when CORS_ORIGINS is an explicit list
-        print("foreign-origin cookie POST status:", r.status_code)

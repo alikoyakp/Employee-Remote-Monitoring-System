@@ -118,10 +118,9 @@ async def audit(actor, action, target_type="", target_id="", details=None):
 
 
 async def current_member(request: Request) -> dict:
-    token = request.cookies.get("access_token")
-    if not token:
-        auth = request.headers.get("authorization", "")
-        token = auth[7:] if auth.lower().startswith("bearer ") else ""
+    # Bearer header only (no cookie sessions, so no CSRF surface).
+    auth = request.headers.get("authorization", "")
+    token = auth[7:] if auth.lower().startswith("bearer ") else ""
     if not token:
         raise HTTPException(status_code=401, detail="Not signed in")
     emp = await employee_from_token(token, "access")

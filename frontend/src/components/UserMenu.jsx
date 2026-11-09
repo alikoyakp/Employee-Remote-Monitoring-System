@@ -14,6 +14,14 @@ function ChangePasswordDialog({ open, onOpenChange }) {
   const [pw, setPw] = useState("");
   const [pw2, setPw2] = useState("");
   const [busy, setBusy] = useState(false);
+  const close = (o) => {
+    if (!o) {
+      setCur("");
+      setPw("");
+      setPw2("");
+    }
+    onOpenChange(o);
+  };
   const save = async () => {
     if (pw !== pw2) return toast.error("New passwords do not match");
     setBusy(true);
@@ -31,7 +39,7 @@ function ChangePasswordDialog({ open, onOpenChange }) {
     }
   };
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={close}>
       <DialogContent className="max-w-sm" data-testid="change-password-dialog">
         <DialogHeader><DialogTitle>Change password</DialogTitle></DialogHeader>
         <div className="space-y-3">
