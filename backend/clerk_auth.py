@@ -3,6 +3,7 @@ are set: /api/clerk/config for the frontend, the /api/__clerk production relay
 (zero DNS per app), and the require_user dependency for protected routes."""
 
 import os
+import re
 from functools import lru_cache
 
 import jwt
@@ -41,7 +42,13 @@ def _secret_key() -> str:
 
 def _is_production() -> bool:
     # Only production instances are served through the /api/__clerk proxy.
-    return _publishable_key().startswith("pk_live_")
+    return _publishable_key().startswith("pk_live_") and os.environ.get("CLERK_USE_PROXY", "true").lower() != "false"
+
+
+def _keys_valid() -> bool:
+    # Rejects empty or placeholder values such as "pk_live_...".
+    pk, sk = _publishable_key(), _secret_key()
+    return bool(re.fullmatch(r"pk_(test|live)_[A-Za-z0-9+/=_\-]{20,}", pk) and re.fullmatch(r"sk_(test|live)_[A-Za-z0-9]{20,}", sk))
 
 
 def _client_ip(request: Request) -> str:
@@ -55,6 +62,8 @@ def _client_ip(request: Request) -> str:
 def clerk_config():
     """What the frontend needs to start Clerk (the publishable key is public)."""
     key = _publishable_key()
+    if (key or _secret_key()) and not _keys_valid():
+        return {"enabled": False, "reason": "invalid_keys", "publishable_key": "", "proxy_url": ""}
     return {
         "enabled": bool(key and _secret_key()),
         "publishable_key": key,

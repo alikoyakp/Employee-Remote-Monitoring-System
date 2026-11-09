@@ -22,23 +22,36 @@ const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 export default function ClerkAuthProvider({ children }) {
   const navigate = useNavigate();
   const [config, setConfig] = useState(null);
-  const [unavailable, setUnavailable] = useState(false);
+  const [unavailable, setUnavailable] = useState("");
 
   useEffect(() => {
     let cancelled = false;
     const load = async (attempt = 0) => {
       try {
         const cfg = await (await fetch(`${BACKEND_URL}/api/clerk/config`)).json();
-        if (cfg.enabled) return cancelled || setConfig(cfg);
+        if (cfg.reason === "invalid_keys") return cancelled || setUnavailable("invalid_keys");
+        if (cfg.enabled) {
+          // Resolve the relative proxy path against the backend so split frontend/API domains work.
+          const proxyUrl = cfg.proxy_url ? new URL(cfg.proxy_url, BACKEND_URL).href : "";
+          return cancelled || setConfig({ ...cfg, proxy_url: proxyUrl });
+        }
       } catch {}
       if (cancelled) return;
-      if (attempt >= 20) return setUnavailable(true);
+      if (attempt >= 20) return setUnavailable("down");
       setTimeout(() => load(attempt + 1), 1500);
     };
     load();
     return () => { cancelled = true; };
   }, []);
 
+  if (unavailable === "invalid_keys") {
+    return (
+      <p style={{ padding: 24 }} data-testid="auth-config-error">
+        Sign-in is not configured: CLERK_PUBLISHABLE_KEY / CLERK_SECRET_KEY on the server are missing or still placeholders.
+        Add your real Clerk keys to backend/.env and restart the backend.
+      </p>
+    );
+  }
   if (unavailable) return <p style={{ padding: 24 }}>Sign-in is unavailable right now. Refresh the page to try again.</p>;
   if (!config) return null;
   return (

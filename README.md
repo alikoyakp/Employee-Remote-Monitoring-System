@@ -77,6 +77,14 @@ Environment templates: `backend/env.example` and `frontend/env.example` (copy to
 | EMERGENT_LLM_KEY | backend | Unlocks Emergent object storage for screenshots |
 | REACT_APP_BACKEND_URL | frontend | Public URL of the backend (routes are under /api) |
 
-Use the platform **Deploy** button. Production gets HTTPS, a production Clerk instance and the cron schedule automatically.
+Use the platform **Deploy** button.
+
+### Self-hosting notes
+- `CLERK_PUBLISHABLE_KEY` / `CLERK_SECRET_KEY` must be real keys from your own Clerk app. Placeholders such as `pk_live_...` show a
+  "Sign-in is not configured" message instead of loading.
+- With `pk_live_` keys the app loads Clerk through the backend proxy `https://<api-domain>/api/__clerk`. In the Clerk dashboard
+  (Domains → Proxy) set the proxy URL to exactly that address. To use Clerk's own DNS (CNAME) setup instead, set `CLERK_USE_PROXY=false`.
+- If the API runs on its own domain (e.g. `api-erms.example.com`), set `CORS_ORIGINS=https://erms.example.com` (the frontend address).
+- Serve a production build (`yarn build`), not the development server (`yarn start`). Production gets HTTPS, a production Clerk instance and the cron schedule automatically.
 Required backend env: `MONGO_URL`, `DB_NAME`, `CLERK_*` (managed), `ADMIN_EMAIL`, `WEBHOOK_CRON_SECRET`, `EMERGENT_LLM_KEY` (object storage).
 After deploying, the first admin signs up on the live app with the `ADMIN_EMAIL` address.
