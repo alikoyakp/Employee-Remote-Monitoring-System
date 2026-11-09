@@ -126,7 +126,7 @@ async def _enrich(emps):
     states = await live_states(emps)
     return [{**clean(e), "department_name": depts.get(e.get("department_id")), "manager_name": names.get(e.get("manager_id")),
              "has_agent": bool(e.get("agent_token_hash")), "live_status": states[e["id"]]["status"],
-             "account_linked": bool(e.get("clerk_user_id"))} for e in emps]
+             "has_password": bool(e.get("password_hash"))} for e in emps]
 
 
 @router.get("/employees")
@@ -201,7 +201,7 @@ async def _validate_employee(body: EmployeeIn, exclude_id=None):
 @router.post("/employees")
 async def create_employee(body: EmployeeIn, admin: dict = Depends(require_role("admin"))):
     data = await _validate_employee(body)
-    doc = {"id": new_id(), **data, "screenshots_enabled": False, "clerk_user_id": None, "created_at": now()}
+    doc = {"id": new_id(), **data, "screenshots_enabled": False, "created_at": now()}
     await db.employees.insert_one(dict(doc))
     await audit(admin, "employee.created", "employee", doc["id"], {"employee_id": doc["employee_id"]})
     return (await _enrich([doc]))[0]
@@ -216,8 +216,6 @@ async def update_employee(emp_id: str, body: EmployeeIn, admin: dict = Depends(r
     if existing.get("role") == "admin" and (data["role"] != "admin" or data["status"] != "active"):
         if await db.employees.count_documents({"role": "admin", "status": "active"}) <= 1:
             raise HTTPException(status_code=409, detail="Keep at least one active admin")
-    if data["email"] != existing.get("email"):
-        data["clerk_user_id"] = None
     await db.employees.update_one({"id": emp_id}, {"$set": data})
     changed = {k: v for k, v in data.items() if existing.get(k) != v}
     await audit(admin, "employee.updated", "employee", emp_id, {"changed": list(changed.keys())})

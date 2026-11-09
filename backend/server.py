@@ -9,11 +9,12 @@ ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / ".env")
 sys.path.insert(0, str(ROOT_DIR))
 
-from fastapi import FastAPI  # noqa: E402
+from fastapi import FastAPI, Request  # noqa: E402
+from fastapi.responses import JSONResponse  # noqa: E402
 from starlette.concurrency import run_in_threadpool  # noqa: E402
 from starlette.middleware.cors import CORSMiddleware  # noqa: E402
 
-from clerk_auth import clerk_router  # noqa: E402
+import auth  # noqa: E402
 from core import client, db, init_storage  # noqa: E402
 import importer  # noqa: E402
 import reports  # noqa: E402
@@ -32,13 +33,26 @@ async def health():
     return {"ok": True}
 
 
-for r in (clerk_router, routes_org.router, importer.router, tracking.router, reports.router):
+for r in (auth.router, routes_org.router, importer.router, tracking.router, reports.router):
     app.include_router(r)
+
+ORIGINS = [o.strip() for o in os.environ.get("CORS_ORIGINS", "*").split(",") if o.strip()]
+
+
+@app.middleware("http")
+async def origin_guard(request: Request, call_next):
+    # Cookie sessions use SameSite=None, so reject state-changing requests from unknown origins.
+    origin = request.headers.get("origin")
+    if (request.method in ("POST", "PUT", "PATCH", "DELETE") and origin and "*" not in ORIGINS
+            and origin not in ORIGINS and (request.cookies.get("access_token") or request.cookies.get("refresh_token"))):
+        return JSONResponse({"detail": "Origin not allowed"}, status_code=403)
+    return await call_next(request)
+
 
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
-    allow_origins=os.environ.get("CORS_ORIGINS", "*").split(","),
+    allow_origins=ORIGINS,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -60,7 +74,11 @@ async def startup():
     await db.screenshots.create_index([("employee_id", 1), ("taken_at", -1)])
     await db.audit_logs.create_index([("ts", -1)])
     await db.imports.create_index([("created_at", -1)])
+    await db.login_attempts.create_index("identifier")
+    await db.password_tokens.create_index("token_hash")
+    await db.password_tokens.create_index("expires_at", expireAfterSeconds=30 * 86400)
     await seed_sample_data()
+    await auth.seed_admins()
     try:
         await run_in_threadpool(init_storage)
         logger.info("Storage initialized")

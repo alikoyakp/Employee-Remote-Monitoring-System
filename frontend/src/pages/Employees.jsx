@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
-import { Pencil, Plus, Search, Upload } from "lucide-react";
+import { Copy, KeyRound, Pencil, Plus, Search, Upload } from "lucide-react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
@@ -25,7 +26,16 @@ export default function Employees() {
   const [role, setRole] = useState("");
   const [editing, setEditing] = useState(null);
   const [open, setOpen] = useState(false);
+  const [link, setLink] = useState(null);
 
+  const makeLink = async (emp) => {
+    try {
+      const r = await api.post(`/auth/password-link/${emp.id}`);
+      setLink({ emp, url: `${window.location.origin}${r.data.path}`, hours: r.data.expires_hours });
+    } catch (e) {
+      toast.error(errMsg(e));
+    }
+  };
   const load = useCallback(async () => {
     const [f, a, d] = await Promise.all([
       api.get("/employees", { params: { q: q || undefined, department_id: dept || undefined, role: role || undefined } }),
@@ -81,6 +91,7 @@ export default function Employees() {
                     <TableCell>
                       <div className="font-medium">{e.full_name}</div>
                       <div className="font-mono text-[11px] text-muted-foreground">{e.employee_id} · {e.email}</div>
+                      {!e.has_password && <div className="text-[11px] text-amber-300" data-testid={`no-password-${e.employee_id}`}>No password yet</div>}
                     </TableCell>
                     <TableCell><RoleBadge role={e.role} /></TableCell>
                     <TableCell className="hidden md:table-cell">{e.department_name || "—"}<div className="text-xs text-muted-foreground">{e.designation}</div></TableCell>
@@ -91,7 +102,10 @@ export default function Employees() {
                       <Switch checked={!!e.screenshots_enabled} disabled={!isAdmin} onCheckedChange={(v) => toggleShots(e, v)} data-testid={`screenshot-toggle-${e.employee_id}`} />
                     </TableCell>
                     {isAdmin && (
-                      <TableCell><Button size="icon" variant="ghost" onClick={() => { setEditing(e); setOpen(true); }} data-testid={`edit-employee-${e.employee_id}`}><Pencil className="h-4 w-4" /></Button></TableCell>
+                      <TableCell className="whitespace-nowrap">
+                        <Button size="icon" variant="ghost" title="Create login / reset link" onClick={() => makeLink(e)} data-testid={`login-link-${e.employee_id}`}><KeyRound className="h-4 w-4" /></Button>
+                        <Button size="icon" variant="ghost" onClick={() => { setEditing(e); setOpen(true); }} data-testid={`edit-employee-${e.employee_id}`}><Pencil className="h-4 w-4" /></Button>
+                      </TableCell>
                     )}
                   </TableRow>
                 ))}
@@ -101,6 +115,18 @@ export default function Employees() {
         )}
       </Panel>
       <EmployeeDialog open={open} onOpenChange={setOpen} employee={editing} employees={all} departments={departments} onSaved={load} />
+      <Dialog open={!!link} onOpenChange={(o) => !o && setLink(null)}>
+        <DialogContent className="max-w-lg" data-testid="login-link-dialog">
+          <DialogHeader>
+            <DialogTitle>Login link for {link?.emp.full_name}</DialogTitle>
+            <DialogDescription>Send this link to {link?.emp.email}. It lets them set their password once and expires in {link?.hours} hours. Any older link stops working.</DialogDescription>
+          </DialogHeader>
+          <div className="flex gap-2">
+            <Input readOnly value={link?.url || ""} className="font-mono text-xs" data-testid="login-link-value" />
+            <Button size="icon" variant="outline" onClick={() => navigator.clipboard.writeText(link.url).then(() => toast.success("Link copied"))} data-testid="login-link-copy"><Copy className="h-4 w-4" /></Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

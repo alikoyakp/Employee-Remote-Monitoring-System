@@ -15,7 +15,7 @@ BASE_URL = os.environ["REACT_APP_BACKEND_URL"].rstrip("/")
 
 @pytest.fixture(scope="session")
 def tokens():
-    out = subprocess.run([sys.executable, os.path.join(HERE, "clerk_test_users.py"), "--tokens"],
+    out = subprocess.run([sys.executable, os.path.join(HERE, "test_users.py"), "--tokens"],
                          capture_output=True, text=True, cwd=os.path.join(HERE, ".."), check=True).stdout
     return {j["employee_id"]: j for j in (json.loads(l) for l in out.strip().splitlines())}
 

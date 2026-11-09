@@ -1,10 +1,10 @@
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
-import { useApi } from "@/lib/api";
+import api from "@/lib/api";
 
 const MeCtx = createContext(null);
 
 export function MeProvider({ children }) {
-  const api = useApi();
+  // me: null = checking, false = signed out, object = signed in
   const [me, setMe] = useState(null);
   const [error, setError] = useState(null);
 
@@ -14,21 +14,26 @@ export function MeProvider({ children }) {
       setMe(r.data);
       setError(null);
     } catch (e) {
-      setError(e?.response?.data?.detail || "error");
+      if (e?.response?.status === 401) setMe(false);
+      else setError(e?.response?.data?.detail || e.message || "error");
     }
-  }, [api]);
+  }, []);
+
+  const logout = useCallback(async () => {
+    try { await api.post("/auth/logout"); } catch {}
+    setMe(false);
+  }, []);
 
   useEffect(() => {
     load();
   }, [load]);
 
-  return <MeCtx.Provider value={{ me, error, reload: load }}>{children}</MeCtx.Provider>;
+  return <MeCtx.Provider value={{ me, error, reload: load, logout }}>{children}</MeCtx.Provider>;
 }
 
 export const useMe = () => useContext(MeCtx);
 
 export function useLookups() {
-  const api = useApi();
   const { me } = useMe();
   const [employees, setEmployees] = useState([]);
   const [departments, setDepartments] = useState([]);
@@ -36,7 +41,7 @@ export function useLookups() {
     const [e, d] = await Promise.all([api.get("/employees"), api.get("/departments")]);
     setEmployees(e.data);
     setDepartments(d.data);
-  }, [api]);
+  }, []);
   useEffect(() => {
     reload().catch(() => {});
   }, [reload, me?.id]);

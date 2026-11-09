@@ -1,4 +1,3 @@
-import { SignIn, SignUp } from "@clerk/react";
 import { Activity, Camera, ShieldCheck } from "lucide-react";
 
 const POINTS = [
@@ -7,7 +6,7 @@ const POINTS = [
   [ShieldCheck, "Transparent by design", "No keystrokes or typed content are ever recorded. Every access is audit-logged."],
 ];
 
-export default function AuthPage({ mode = "in" }) {
+export function AuthLayout({ children, testId }) {
   return (
     <div className="grain flex min-h-screen bg-background">
       <div className="relative hidden w-[46%] flex-col justify-between overflow-hidden border-r bg-card p-12 lg:flex">
@@ -29,11 +28,9 @@ export default function AuthPage({ mode = "in" }) {
         </div>
         <p className="relative text-xs text-muted-foreground">Access is limited to employees registered by your administrator.</p>
       </div>
-      <div className="flex flex-1 flex-col items-center justify-center gap-6 p-4" data-testid={mode === "in" ? "sign-in-page" : "sign-up-page"}>
+      <div className="flex flex-1 flex-col items-center justify-center gap-6 p-4" data-testid={testId}>
         <div className="w-[106px] lg:hidden"><img src="/logo.png" alt="Al Arabia" className="h-auto w-full" /></div>
-        {mode === "in"
-          ? <SignIn routing="path" path="/sign-in" signUpUrl="/sign-up" withSignUp />
-          : <SignUp routing="path" path="/sign-up" signInUrl="/sign-in" />}
+        <div className="w-full max-w-sm rounded-xl border bg-card p-6 rise">{children}</div>
       </div>
     </div>
   );

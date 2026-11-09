@@ -61,17 +61,9 @@ class TestRoles:
         assert manager.get(f"{API}/dashboard").status_code == 200
         assert manager.get(f"{API}/audit-logs").status_code == 403
 
-    def test_unregistered_user_403(self):
-        import clerk_test_users as c
-        email = f"wp.unreg{uuid.uuid4().hex[:6]}+clerk_test@example.com"
-        u = c.bapi("/users", {"email_address": [email], "password": "WorkPulse-Test-2026!", "skip_password_checks": True})
-        try:
-            s = c.bapi("/sessions", {"user_id": u["id"]})
-            tok = c.bapi(f"/sessions/{s['id']}/tokens", {"expires_in_seconds": 600})["jwt"]
-            r = requests.get(f"{API}/me", headers={"Authorization": f"Bearer {tok}"})
-            assert r.status_code == 403 and r.json()["detail"] == "not_registered"
-        finally:
-            c.bapi(f"/users/{u['id']}", method="DELETE")
+    def test_invalid_token_401(self):
+        r = requests.get(f"{API}/me", headers={"Authorization": "Bearer not-a-real-token"})
+        assert r.status_code == 401
 
 
 # ---------- Import ----------

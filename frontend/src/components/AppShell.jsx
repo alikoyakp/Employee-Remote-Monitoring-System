@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { NavLink } from "react-router-dom";
-import { UserButton } from "@clerk/react";
+import { UserMenu } from "@/components/UserMenu";
 import {
   Activity, Building2, CalendarClock, Camera, FileClock, FileSpreadsheet, LayoutDashboard, Menu, MonitorDown,
   ScrollText, Settings, Sun, Upload, Users,
@@ -96,7 +96,7 @@ export function AppShell({ children }) {
           </div>
           <div className="flex items-center gap-3">
             <div className="hidden sm:block"><ClockWidget prefix="header-" /></div>
-            <UserButton />
+            <UserMenu />
           </div>
         </header>
         <main className="mx-auto max-w-[1400px] p-4 sm:p-6 lg:p-8">

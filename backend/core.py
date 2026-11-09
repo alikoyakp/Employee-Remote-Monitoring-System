@@ -2,26 +2,24 @@ import hashlib
 import logging
 import os
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
+import bcrypt
+import jwt
 import requests
 from fastapi import Depends, HTTPException, Request
 from motor.motor_asyncio import AsyncIOMotorClient
-from starlette.concurrency import run_in_threadpool
 
-try:
-    from backend.clerk_auth import require_user
-except ModuleNotFoundError:
-    from clerk_auth import require_user
-
-logger = logging.getLogger("workpulse")
+logger = logging.getLogger("erm")
 client = AsyncIOMotorClient(os.environ["MONGO_URL"])
 db = client[os.environ["DB_NAME"]]
 
 ROLES = ["admin", "manager", "employee"]
 DEFAULT_ROLE = "employee"
-ENV = "live" if os.environ.get("CLERK_PUBLISHABLE_KEY", "").startswith("pk_live_") else "preview"
 APP_NAME = "workpulse"
+JWT_ALG = "HS256"
+ACCESS_MIN = 15
+REFRESH_DAYS = 7
 
 DEFAULT_SETTINGS = {
     "idle_threshold_min": 5,
@@ -38,7 +36,7 @@ DEFAULT_SETTINGS = {
         "Screenshots are visible only to administrators and your reporting manager and are deleted automatically."
     ),
 }
-SENSITIVE = {"_id", "agent_token_hash"}
+SENSITIVE = {"_id", "agent_token_hash", "password_hash", "clerk_user_id"}
 
 
 def now():
@@ -69,6 +67,40 @@ def hash_token(token):
     return hashlib.sha256(token.encode()).hexdigest()
 
 
+def hash_password(password):
+    return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+
+
+def verify_password(plain, hashed):
+    try:
+        return bcrypt.checkpw(plain.encode("utf-8"), hashed.encode("utf-8"))
+    except ValueError:
+        return False
+
+
+def create_token(emp, kind):
+    exp = now() + (timedelta(minutes=ACCESS_MIN) if kind == "access" else timedelta(days=REFRESH_DAYS))
+    payload = {"sub": emp["id"], "type": kind, "pv": emp.get("password_version", 0), "exp": exp}
+    return jwt.encode(payload, os.environ["JWT_SECRET"], algorithm=JWT_ALG)
+
+
+async def employee_from_token(token, kind):
+    try:
+        payload = jwt.decode(token, os.environ["JWT_SECRET"], algorithms=[JWT_ALG])
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Session expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid session")
+    if payload.get("type") != kind:
+        raise HTTPException(status_code=401, detail="Invalid session")
+    emp = await db.employees.find_one({"id": payload["sub"]}, {"_id": 0})
+    if not emp or emp.get("password_version", 0) != payload.get("pv"):
+        raise HTTPException(status_code=401, detail="Session no longer valid")
+    if emp.get("status") == "inactive":
+        raise HTTPException(status_code=401, detail="Account deactivated")
+    return emp
+
+
 async def get_settings():
     doc = await db.settings.find_one({"id": "global"}, {"_id": 0}) or {}
     return {**DEFAULT_SETTINGS, **{k: v for k, v in doc.items() if k in DEFAULT_SETTINGS}}
@@ -85,55 +117,14 @@ async def audit(actor, action, target_type="", target_id="", details=None):
     })
 
 
-def _admin_emails():
-    return {e.strip().lower() for e in os.environ.get("ADMIN_EMAIL", "").split(",") if e.strip()}
-
-
-def _clerk_profile(user_id):
-    r = requests.get(f"https://api.clerk.com/v1/users/{user_id}", timeout=10,
-                     headers={"Authorization": f"Bearer {os.environ['CLERK_SECRET_KEY']}", "User-Agent": "emergent-app"})
-    r.raise_for_status()
-    data = r.json()
-    emails = [e["email_address"].lower() for e in data.get("email_addresses", [])
-              if (e.get("verification") or {}).get("status") == "verified"]
-    name = " ".join(x for x in [data.get("first_name"), data.get("last_name")] if x) or (emails[0].split("@")[0] if emails else "Admin")
-    return emails, name
-
-
-async def _link_employee(uid):
-    emails, name = await run_in_threadpool(_clerk_profile, uid)
-    admin_email = next((e for e in emails if e in _admin_emails()), None)
-    emp = await db.employees.find_one({"email": {"$in": emails}, "clerk_user_id": {"$in": [None, ""]}}, {"_id": 0})
-    if emp:
-        update = {"clerk_user_id": uid, "env": ENV}
-        if admin_email:
-            update["role"] = "admin"
-        await db.employees.update_one({"id": emp["id"]}, {"$set": update})
-        await audit({**emp, **update}, "auth.account_linked", "employee", emp["id"], {"email": emp["email"]})
-        return {**emp, **update}
-    if admin_email:
-        emp = {
-            "id": new_id(), "employee_id": f"ADMIN-{uuid.uuid4().hex[:4].upper()}", "full_name": name,
-            "email": admin_email, "department_id": None, "designation": "Administrator", "manager_id": None,
-            "working_schedule": "Mon-Fri 09:00-18:00", "timezone": "UTC", "role": "admin", "status": "active",
-            "screenshots_enabled": False, "clerk_user_id": uid, "env": ENV, "created_at": now(),
-        }
-        await db.employees.insert_one(dict(emp))
-        emp.pop("_id", None)
-        await audit(emp, "auth.admin_bootstrapped", "employee", emp["id"], {"email": admin_email})
-        return emp
-    raise HTTPException(status_code=403, detail="not_registered")
-
-
-async def current_member(user: dict = Depends(require_user)) -> dict:
-    uid = user["user_id"]
-    emp = await db.employees.find_one({"clerk_user_id": uid}, {"_id": 0})
-    if emp is None:
-        emp = await _link_employee(uid)
-    if emp.get("status") == "inactive":
-        raise HTTPException(status_code=403, detail="account_inactive")
-    if emp.get("env") != ENV:
-        await db.employees.update_one({"id": emp["id"]}, {"$set": {"env": ENV}})
+async def current_member(request: Request) -> dict:
+    token = request.cookies.get("access_token")
+    if not token:
+        auth = request.headers.get("authorization", "")
+        token = auth[7:] if auth.lower().startswith("bearer ") else ""
+    if not token:
+        raise HTTPException(status_code=401, detail="Not signed in")
+    emp = await employee_from_token(token, "access")
     emp["role"] = emp.get("role") if emp.get("role") in ROLES else DEFAULT_ROLE
     return emp
 

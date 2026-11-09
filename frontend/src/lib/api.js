@@ -1,28 +1,35 @@
 import axios from "axios";
-import { useMemo, useRef } from "react";
-import { useAuth } from "@clerk/react";
 
 export const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
-export function useApi() {
-  const { getToken } = useAuth();
-  const ref = useRef(getToken);
-  ref.current = getToken;
-  return useMemo(() => {
-    const inst = axios.create({ baseURL: API });
-    inst.interceptors.request.use(async (cfg) => {
-      const token = await ref.current();
-      if (token) cfg.headers.Authorization = `Bearer ${token}`;
-      return cfg;
-    });
-    return inst;
-  }, []);
-}
+const api = axios.create({ baseURL: API, withCredentials: true });
+let refreshing = null;
+
+api.interceptors.response.use(
+  (r) => r,
+  async (error) => {
+    const cfg = error.config || {};
+    const url = cfg.url || "";
+    if (error.response?.status === 401 && !cfg._retried && !url.startsWith("/auth/")) {
+      cfg._retried = true;
+      try {
+        refreshing = refreshing || api.post("/auth/refresh").finally(() => { refreshing = null; });
+        await refreshing;
+        return api(cfg);
+      } catch {}
+    }
+    return Promise.reject(error);
+  },
+);
+
+export const useApi = () => api;
+export default api;
 
 export function errMsg(e) {
   const d = e?.response?.data?.detail;
   if (typeof d === "string") return d;
-  if (Array.isArray(d)) return d.map((x) => x.msg).join(", ");
+  if (Array.isArray(d)) return d.map((x) => x?.msg || JSON.stringify(x)).join(", ");
+  if (d && typeof d.msg === "string") return d.msg;
   return e?.message || "Something went wrong";
 }
 
@@ -34,8 +41,8 @@ export async function blobError(e) {
   return errMsg(e);
 }
 
-export async function downloadFile(api, url, params, filename) {
-  const r = await api.get(url, { params, responseType: "blob" });
+export async function downloadFile(client, url, params, filename) {
+  const r = await client.get(url, { params, responseType: "blob" });
   const href = URL.createObjectURL(r.data);
   const a = document.createElement("a");
   a.href = href;
