@@ -1,0 +1,46 @@
+{
+  "summary": "Re-verified the built-in email/password auth that replaced Clerk, plus a light regression. Backend: 45/45 pytest pass (13 new in tests/test_auth.py plus the existing suite: role scoping, tracking, import, reports, agent). Frontend: all auth flows pass end to end: /login, the /sign-in redirect, redirect for signed-out users, admin lands on the dashboard and employee on My day, session kept on reload, silent refresh after the access cookie is dropped, change password (wrong current password and success), sign out, Employees key icon -> login link dialog -> set-password page in a fresh context, link reuse rejected, 'No password yet' badge. At first the frontend did not load ('Compiled with problems': a stale webpack cache still pointed at nested @floating-ui node_modules removed with the Clerk packages). Fixed by clearing node_modules/.cache and restarting the frontend. Two security gaps found: the brute-force lock can be bypassed by sending a fake X-Forwarded-For header, and CORS_ORIGINS='*' turns off origin_guard.",
+  "backend_issues": {
+    "critical": [
+      {"endpoint": "POST /api/auth/login", "issue": "The brute-force lock can be bypassed. _ip() trusts the first value of the X-Forwarded-For header, which the client controls. I sent 7 bad logins for the same email, each with a different X-Forwarded-For (10.0.0.1..7): all returned 401, none 429, and each made its own login_attempts row with count 1. An attacker can get unlimited password guesses.", "priority": "HIGH"}
+    ],
+    "minor": [
+      {"endpoint": "CORS / origin_guard (server.py)", "issue": "backend/.env has CORS_ORIGINS=\"*\". Starlette then echoes any Origin back with allow-credentials (a preflight from https://evil.com got access-control-allow-origin: https://evil.com), and origin_guard is skipped because '*' is in ORIGINS. Together with SameSite=None cookies, a request from any website can carry the user's session. Production must set an explicit list, e.g. https://erms.al-arabia.com."},
+      {"endpoint": "login_attempts", "issue": "No TTL and no time window: failed counts pile up forever until a successful login, so 5 typos spread over weeks still lock the account. Add a TTL index on updated_at or reset the count when it is old."},
+      {"endpoint": "GET /api/auth/link-info", "issue": "If the employee was deleted after the link was made, emp is None, so emp['full_name'] raises an error and the endpoint returns 500."},
+      {"endpoint": "POST /api/auth/logout", "issue": "Only clears the cookies. The stateless refresh token (7 days) still works if it was copied before. Acceptable for an MVP; a server-side session or token version would fix it."},
+      {"endpoint": "employees indexes", "issue": "The old clerk_user_id_1 index is still present (harmless)."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {"flow": "App boot after Clerk removal", "issue": "A stale webpack cache made the dev server fail with 'ENOENT @floating-ui/core/node_modules/@floating-ui/utils/...'. Fixed by rm -rf node_modules/.cache and restarting the frontend. A real `yarn build` for self-hosting should be clean, but run it once to confirm.", "affected_selectors": []}
+    ],
+    "design_issues": [
+      {"screen": "Login", "issues": ["After login the user always goes to '/'; the page they first asked for (deep link) is lost. Minor."]},
+      {"screen": "Change password dialog", "issues": ["No confirm-new-password field and no strength hint (the set-password page has both). Minor."]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_auth.py", "/app/backend/tests/test_workpulse_api.py", "/app/backend/tests/test_validation.py", "/app/test_reports/pytest/pytest_results.xml"],
+  "action_items": [
+    "Make brute-force protection impossible to bypass: do not trust the first X-Forwarded-For value (use the right-most hop added by the trusted proxy, or request.client), and/or also lock per email regardless of IP.",
+    "Production: set CORS_ORIGINS to explicit origins (the frontend origin) so origin_guard is enforced; consider refusing to start with '*' when cookies are used.",
+    "Add a TTL or time window to login_attempts (e.g. a TTL index on updated_at).",
+    "Guard link-info / set-password against a missing employee (return 400, not 500).",
+    "Optional: send the user back to the page they asked for after login; add a confirm field to the Change password dialog."
+  ],
+  "critical_code_review_comments": [
+    "auth.py _ip(): X-Forwarded-For spoofing defeats MAX_ATTEMPTS (tested and confirmed).",
+    "server.py origin_guard is skipped when '*' is in ORIGINS, and the preview .env uses '*'.",
+    "auth.py link_info: possible None subscript on emp.",
+    "Good: bcrypt $2b$ hashes; httpOnly+Secure+SameSite=None cookies; password_version invalidates old access and refresh tokens; tokens stored as sha256; a new link invalidates old ones; inactive accounts blocked both at login and on existing sessions; seed_admins never overwrites an existing password; same generic 401 for an unknown user and a wrong password."
+  ],
+  "updated_files": ["/app/backend/tests/test_auth.py (new)", "frontend: cleared node_modules/.cache and restarted the frontend (no source change)"],
+  "success_rate": {"backend": "100% (45/45 tests; 1 security gap found by a manual probe)", "frontend": "100% of auth flows tested"},
+  "seed_data_creation": "Temporary: TEST_AUTH_<hex> employees (pytest fixture) and TEST_UI1 (UI test), plus their password_tokens, audit_logs and login_attempts. All deleted by id afterwards. TEST_ADM/MGR/EMP passwords were not changed (password_version still 1). The owner and seed admin accounts were not touched. A login_attempts row '34.170.12.145:mishalmmofficial@gmail.com' count=1 already existed and was left alone.",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Run: cd /app/backend && pytest tests/ (pytest.ini uses xdist loadscope). test_auth.py creates its own TEST_AUTH employee per test class and cleans it up. TestInactive expects the password 'Another-pass-2' set by TestChangePassword on the same worker, which is fragile; merge them into one class if it gets flaky. To re-check the XFF bypass, send 6+ bad logins with different X-Forwarded-For values and expect a 429. The access/refresh interceptor was checked by dropping the access_token cookie and reloading.",
+  "rca of the issue": "Brute-force bypass: the lock key is f'{_ip(request)}:{email}', and _ip takes x-forwarded-for.split(',')[0], which the client writes. The ingress appends the real IP to the header instead of replacing it. Fix: use the last hop from the trusted proxy, or key the lock on email only (or both). Frontend compile failure: removing the Clerk packages flattened @floating-ui into the top-level node_modules, but the webpack/babel-loader cache under node_modules/.cache still pointed to the old nested paths."
+}

@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
-import api from "@/lib/api";
+import api, { clearTokens } from "@/lib/api";
 
 const MeCtx = createContext(null);
 
@@ -21,6 +21,7 @@ export function MeProvider({ children }) {
 
   const logout = useCallback(async () => {
     try { await api.post("/auth/logout"); } catch {}
+    clearTokens();
     setMe(false);
   }, []);
 

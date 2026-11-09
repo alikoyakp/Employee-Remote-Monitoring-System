@@ -12,7 +12,7 @@ Full-stack employee attendance, activity monitoring and reporting for office and
 | Frontend | React 19, React Router, Tailwind, shadcn/ui, Recharts (`/app/frontend`) |
 | Backend | FastAPI (`/app/backend`), all routes under `/api` |
 | Database | MongoDB (collections: departments, employees, sessions, breaks, activity, screenshots, imports, audit_logs, settings) |
-| Auth | Emergent-managed Clerk (email + password). Roles (admin / manager / employee) stored in MongoDB and enforced server-side |
+| Auth | Built-in email + password (bcrypt hashes, JWT in httpOnly cookies, brute-force lockout). Roles (admin / manager / employee) stored in MongoDB and enforced server-side |
 | Screenshot storage | Emergent private object storage; images only served through an authorised, audit-logged backend endpoint |
 | Background jobs | Platform cron `.emergent/crons.yml` → `POST /api/cron/maintenance` every 15 min (missed-logout auto-close, screenshot & activity retention) |
 | Desktop agent | `backend/agent_dist/erm_agent.py` (download from the "Desktop agent" page) |
@@ -27,8 +27,9 @@ Full-stack employee attendance, activity monitoring and reporting for office and
 - `seed.py` – idempotent sample data (4 departments, 12 example employees, ~4 working days of history)
 
 ## Access model
-- Nobody can self-register into the app: a signed-in Clerk user only gets access if their **verified email** matches an
-  employee record (created manually or by import), or is listed in `ADMIN_EMAIL` (first admin bootstrap).
+- No open sign-up. `ADMIN_EMAIL` accounts are created on startup with `ADMIN_PASSWORD` (only if they have no password yet).
+  Everyone else gets a one-time login link (72 h) from an admin on the Employees page (key icon) to set their password;
+  the same link resets a forgotten password.
 - Admin: everything. Manager: themselves + direct reports (screenshots of direct reports only). Employee: own data only.
 - Screenshots are **off by default per employee**; only admins can toggle them (Employees page).
 - Every screenshot list/view, settings change, import, role/profile change and clock event is written to `audit_logs`.
@@ -61,7 +62,7 @@ overwrite confirmation. Each upload (including rejected files) appears in Import
 ## Tests
 ```
 cd backend && python -m pytest -q tests          # validation unit tests
-python tests/clerk_test_users.py --tokens         # create dev test users and print API tokens
+python tests/test_users.py --tokens               # ensure TEST_ accounts and print API tokens
 ```
 
 ## Deployment
@@ -71,8 +72,8 @@ Environment templates: `backend/env.example` and `frontend/env.example` (copy to
 |---|---|---|
 | MONGO_URL / DB_NAME | backend | MongoDB connection and database name |
 | CORS_ORIGINS | backend | Comma-separated allowed frontend origins |
-| CLERK_PUBLISHABLE_KEY / CLERK_SECRET_KEY | backend | Sign-in (Clerk). Emergent-managed when deployed on Emergent; self-hosting needs your own Clerk app |
-| ADMIN_EMAIL | backend | Email(s) that become admin on first sign-in |
+| JWT_SECRET | backend | Long random string used to sign login sessions |
+| ADMIN_EMAIL / ADMIN_PASSWORD | backend | First admin account(s) (comma-separated emails) and their initial password |
 | WEBHOOK_CRON_SECRET | backend | Bearer secret for POST /api/cron/maintenance (call it every 15 min) |
 | EMERGENT_LLM_KEY | backend | Unlocks Emergent object storage for screenshots |
 | REACT_APP_BACKEND_URL | frontend | Public URL of the backend (routes are under /api) |
@@ -80,11 +81,6 @@ Environment templates: `backend/env.example` and `frontend/env.example` (copy to
 Use the platform **Deploy** button.
 
 ### Self-hosting notes
-- `CLERK_PUBLISHABLE_KEY` / `CLERK_SECRET_KEY` must be real keys from your own Clerk app. Placeholders such as `pk_live_...` show a
-  "Sign-in is not configured" message instead of loading.
-- With `pk_live_` keys the app loads Clerk through the backend proxy `https://<api-domain>/api/__clerk`. In the Clerk dashboard
-  (Domains → Proxy) set the proxy URL to exactly that address. To use Clerk's own DNS (CNAME) setup instead, set `CLERK_USE_PROXY=false`.
-- If the API runs on its own domain (e.g. `api-erms.example.com`), set `CORS_ORIGINS=https://erms.example.com` (the frontend address).
-- Serve a production build (`yarn build`), not the development server (`yarn start`). Production gets HTTPS, a production Clerk instance and the cron schedule automatically.
-Required backend env: `MONGO_URL`, `DB_NAME`, `CLERK_*` (managed), `ADMIN_EMAIL`, `WEBHOOK_CRON_SECRET`, `EMERGENT_LLM_KEY` (object storage).
-After deploying, the first admin signs up on the live app with the `ADMIN_EMAIL` address.
+- Set `CORS_ORIGINS` to the exact frontend address (e.g. `CORS_ORIGINS=https://erms.example.com`), never `*` in production: `*` turns off the cross-site request check. Both sites must use HTTPS (session cookies are Secure).
+- Serve a production build (`yarn build`), not the development server (`yarn start`).
+After starting, sign in with `ADMIN_EMAIL` / `ADMIN_PASSWORD`, then change the password from the user menu.

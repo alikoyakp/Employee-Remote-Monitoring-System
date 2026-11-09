@@ -2,6 +2,7 @@ import os
 import secrets
 import uuid
 from datetime import timedelta
+from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel
@@ -31,41 +32,57 @@ class ChangePasswordIn(BaseModel):
     new_password: str
 
 
+class RefreshIn(BaseModel):
+    refresh_token: str = ""
+
+
 def check_strength(pw):
     if len(pw) < 8 or pw.isalpha() or pw.isdigit():
         raise HTTPException(status_code=400, detail="Password must be at least 8 characters and include a number or symbol")
 
 
 def set_session(response, emp):
-    response.set_cookie("access_token", create_token(emp, "access"), max_age=15 * 60, **COOKIE)
-    response.set_cookie("refresh_token", create_token(emp, "refresh"), max_age=7 * 86400, **COOKIE)
+    access, refresh_tok = create_token(emp, "access"), create_token(emp, "refresh")
+    response.set_cookie("access_token", access, max_age=15 * 60, **COOKIE)
+    response.set_cookie("refresh_token", refresh_tok, max_age=7 * 86400, **COOKIE)
+    return {"ok": True, "access_token": access, "refresh_token": refresh_tok}
 
 
 def _ip(request):
-    fwd = request.headers.get("x-forwarded-for", "")
-    return fwd.split(",")[0].strip() if fwd else (request.client.host if request.client else "")
+    # Only the socket peer (the trusted reverse proxy or client); X-Forwarded-For is client-controlled.
+    return request.client.host if request.client else ""
+
+
+async def _locked(ident):
+    att = await db.login_attempts.find_one({"identifier": ident})
+    return att, bool(att and att.get("locked_until") and aware(att["locked_until"]) > now())
+
+
+async def _fail(ident, att, limit):
+    count = (att or {}).get("count", 0) + 1
+    upd = {"count": count, "updated_at": now()}
+    if count >= limit:
+        upd.update(count=0, locked_until=now() + timedelta(minutes=LOCK_MIN))
+    await db.login_attempts.update_one({"identifier": ident}, {"$set": upd}, upsert=True)
 
 
 @router.post("/login")
 async def login(body: LoginIn, request: Request, response: Response):
     email = body.email.strip().lower()
-    ident = f"{_ip(request)}:{email}"
-    att = await db.login_attempts.find_one({"identifier": ident})
-    if att and att.get("locked_until") and aware(att["locked_until"]) > now():
+    ident, email_ident = f"{_ip(request)}:{email}", f"email:{email}"
+    att, ip_locked = await _locked(ident)
+    email_att, email_locked = await _locked(email_ident)
+    if ip_locked or email_locked:
         raise HTTPException(status_code=429, detail=f"Too many failed attempts. Try again in {LOCK_MIN} minutes.")
     emp = await db.employees.find_one({"email": email, "status": {"$ne": "inactive"}}, {"_id": 0})
     if not emp or not emp.get("password_hash") or not verify_password(body.password, emp["password_hash"]):
-        count = (att or {}).get("count", 0) + 1
-        upd = {"count": count, "updated_at": now()}
-        if count >= MAX_ATTEMPTS:
-            upd.update(count=0, locked_until=now() + timedelta(minutes=LOCK_MIN))
-        await db.login_attempts.update_one({"identifier": ident}, {"$set": upd}, upsert=True)
+        await _fail(ident, att, MAX_ATTEMPTS)
+        await _fail(email_ident, email_att, MAX_ATTEMPTS)
         raise HTTPException(status_code=401, detail="Invalid email or password. New here? Ask your administrator for a login link.")
-    await db.login_attempts.delete_one({"identifier": ident})
+    await db.login_attempts.delete_many({"identifier": {"$in": [ident, email_ident]}})
     await db.employees.update_one({"id": emp["id"]}, {"$set": {"last_login_at": now()}})
     await audit(emp, "auth.login", "employee", emp["id"])
-    set_session(response, emp)
-    return {"ok": True}
+    return set_session(response, emp)
 
 
 @router.post("/logout")
@@ -76,13 +93,14 @@ async def logout(response: Response):
 
 
 @router.post("/refresh")
-async def refresh(request: Request, response: Response):
-    token = request.cookies.get("refresh_token")
+async def refresh(request: Request, response: Response, body: Optional[RefreshIn] = None):
+    token = (body.refresh_token if body else "") or request.cookies.get("refresh_token")
     if not token:
         raise HTTPException(status_code=401, detail="Not signed in")
     emp = await employee_from_token(token, "refresh")
-    response.set_cookie("access_token", create_token(emp, "access"), max_age=15 * 60, **COOKIE)
-    return {"ok": True}
+    access = create_token(emp, "access")
+    response.set_cookie("access_token", access, max_age=15 * 60, **COOKIE)
+    return {"ok": True, "access_token": access}
 
 
 async def _apply_password(emp, password):
@@ -103,8 +121,7 @@ async def set_password(body: SetPasswordIn, response: Response):
     emp = await _apply_password(emp, body.password)
     await db.password_tokens.update_many({"employee_id": emp["id"], "used": False}, {"$set": {"used": True, "used_at": now()}})
     await audit(emp, "auth.password_set", "employee", emp["id"])
-    set_session(response, emp)
-    return {"ok": True}
+    return set_session(response, emp)
 
 
 @router.get("/link-info")
@@ -113,6 +130,8 @@ async def link_info(token: str):
     if not link or aware(link["expires_at"]) < now():
         raise HTTPException(status_code=400, detail="This link is invalid or has expired. Ask your administrator for a new one.")
     emp = await db.employees.find_one({"id": link["employee_id"]}, {"_id": 0, "full_name": 1, "email": 1})
+    if not emp:
+        raise HTTPException(status_code=400, detail="This account no longer exists")
     return {"full_name": emp["full_name"], "email": emp["email"]}
 
 
@@ -124,8 +143,7 @@ async def change_password(body: ChangePasswordIn, response: Response, member: di
     check_strength(body.new_password)
     emp = await _apply_password(emp, body.new_password)
     await audit(member, "auth.password_changed", "employee", member["id"])
-    set_session(response, emp)
-    return {"ok": True}
+    return set_session(response, emp)
 
 
 @router.post("/password-link/{emp_id}")

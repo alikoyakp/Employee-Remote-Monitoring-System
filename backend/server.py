@@ -42,10 +42,13 @@ ORIGINS = [o.strip() for o in os.environ.get("CORS_ORIGINS", "*").split(",") if 
 @app.middleware("http")
 async def origin_guard(request: Request, call_next):
     # Cookie sessions use SameSite=None, so reject state-changing requests from unknown origins.
+    # CORS_ORIGINS="*" (preview/dev only) disables this check; production must list explicit origins.
     origin = request.headers.get("origin")
-    if (request.method in ("POST", "PUT", "PATCH", "DELETE") and origin and "*" not in ORIGINS
-            and origin not in ORIGINS and (request.cookies.get("access_token") or request.cookies.get("refresh_token"))):
-        return JSONResponse({"detail": "Origin not allowed"}, status_code=403)
+    has_session = request.cookies.get("access_token") or request.cookies.get("refresh_token")
+    if request.method in ("POST", "PUT", "PATCH", "DELETE") and origin and has_session and "*" not in ORIGINS:
+        host = (request.headers.get("x-forwarded-host") or request.headers.get("host", "")).split(",")[0].strip()
+        if origin.split("://", 1)[-1] != host and origin not in ORIGINS:
+            return JSONResponse({"detail": "Origin not allowed"}, status_code=403)
     return await call_next(request)
 
 
@@ -75,6 +78,7 @@ async def startup():
     await db.audit_logs.create_index([("ts", -1)])
     await db.imports.create_index([("created_at", -1)])
     await db.login_attempts.create_index("identifier")
+    await db.login_attempts.create_index("updated_at", expireAfterSeconds=86400)
     await db.password_tokens.create_index("token_hash")
     await db.password_tokens.create_index("expires_at", expireAfterSeconds=30 * 86400)
     await seed_sample_data()

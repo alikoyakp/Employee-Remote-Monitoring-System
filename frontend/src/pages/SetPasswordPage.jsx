@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { AuthLayout } from "@/components/AuthLayout";
 import { useMe } from "@/context/MeContext";
-import api, { errMsg } from "@/lib/api";
+import api, { errMsg, saveTokens } from "@/lib/api";
 
 export default function SetPasswordPage() {
   const [params] = useSearchParams();
@@ -29,7 +29,7 @@ export default function SetPasswordPage() {
     setBusy(true);
     setError("");
     try {
-      await api.post("/auth/set-password", { token, password: pw });
+      saveTokens((await api.post("/auth/set-password", { token, password: pw })).data);
       await reload();
       navigate("/", { replace: true });
     } catch (err) {

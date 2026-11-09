@@ -2,21 +2,43 @@ import axios from "axios";
 
 export const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
-const api = axios.create({ baseURL: API, withCredentials: true });
+const api = axios.create({ baseURL: API });
+const KEY = "erm_session";
 let refreshing = null;
+
+const readTokens = () => {
+  try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch { return {}; }
+};
+export const saveTokens = (data) => {
+  const cur = readTokens();
+  localStorage.setItem(KEY, JSON.stringify({
+    access_token: data.access_token || cur.access_token,
+    refresh_token: data.refresh_token || cur.refresh_token,
+  }));
+};
+export const clearTokens = () => localStorage.removeItem(KEY);
+
+api.interceptors.request.use((cfg) => {
+  const t = readTokens().access_token;
+  if (t) cfg.headers.Authorization = `Bearer ${t}`;
+  return cfg;
+});
 
 api.interceptors.response.use(
   (r) => r,
   async (error) => {
     const cfg = error.config || {};
     const url = cfg.url || "";
-    if (error.response?.status === 401 && !cfg._retried && !url.startsWith("/auth/")) {
+    const rt = readTokens().refresh_token;
+    if (error.response?.status === 401 && !cfg._retried && rt && !url.startsWith("/auth/")) {
       cfg._retried = true;
       try {
-        refreshing = refreshing || api.post("/auth/refresh").finally(() => { refreshing = null; });
+        refreshing = refreshing || api.post("/auth/refresh", { refresh_token: rt }).then((r) => saveTokens(r.data)).finally(() => { refreshing = null; });
         await refreshing;
         return api(cfg);
-      } catch {}
+      } catch {
+        clearTokens();
+      }
     }
     return Promise.reject(error);
   },

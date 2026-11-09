@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { AuthLayout } from "@/components/AuthLayout";
 import { useMe } from "@/context/MeContext";
-import api, { errMsg } from "@/lib/api";
+import api, { errMsg, saveTokens } from "@/lib/api";
 
 export default function LoginPage() {
   const { me, reload } = useMe();
@@ -21,7 +21,7 @@ export default function LoginPage() {
     setBusy(true);
     setError("");
     try {
-      await api.post("/auth/login", { email, password });
+      saveTokens((await api.post("/auth/login", { email, password })).data);
       await reload();
       navigate("/", { replace: true });
     } catch (err) {
