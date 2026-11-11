@@ -3,6 +3,7 @@ import logging
 import os
 import uuid
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 import bcrypt
 import jwt
@@ -163,14 +164,26 @@ async def agent_member(request: Request) -> dict:
     return emp
 
 
-# Object storage (private screenshots)
+# Screenshot storage: Emergent object storage, or local disk for self-hosting (STORAGE_BACKEND=local).
+STORAGE_BACKEND = (os.environ.get("STORAGE_BACKEND") or ("emergent" if os.environ.get("EMERGENT_LLM_KEY") else "local")).lower()
+SCREENSHOT_DIR = Path(os.environ.get("SCREENSHOT_DIR") or Path(__file__).parent / "screenshot_data")
 STORAGE_BASE = (os.environ.get("INTEGRATION_PROXY_URL") or "").strip() or "https://integrations.emergentagent.com"
 STORAGE_URL = STORAGE_BASE.rstrip("/") + "/objstore/api/v1/storage"
 _storage_key = None
 
 
+def _local(path):
+    p = (SCREENSHOT_DIR / path).resolve()
+    if SCREENSHOT_DIR.resolve() not in p.parents:
+        raise ValueError("Invalid storage path")
+    return p
+
+
 def init_storage(force=False):
     global _storage_key
+    if STORAGE_BACKEND == "local":
+        SCREENSHOT_DIR.mkdir(parents=True, exist_ok=True)
+        return "local"
     if _storage_key and not force:
         return _storage_key
     resp = requests.post(f"{STORAGE_URL}/init", json={"emergent_key": os.environ.get("EMERGENT_LLM_KEY")}, timeout=30)
@@ -180,6 +193,11 @@ def init_storage(force=False):
 
 
 def put_object(path, data, content_type):
+    if STORAGE_BACKEND == "local":
+        p = _local(path)
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_bytes(data)
+        return {"path": path}
     resp = requests.put(f"{STORAGE_URL}/objects/{path}", data=data, timeout=120,
                         headers={"X-Storage-Key": init_storage(), "Content-Type": content_type})
     if resp.status_code == 404:
@@ -190,6 +208,25 @@ def put_object(path, data, content_type):
 
 
 def get_object(path):
+    if STORAGE_BACKEND == "local":
+        return _local(path).read_bytes(), "image/png" if path.endswith(".png") else "image/jpeg"
     resp = requests.get(f"{STORAGE_URL}/objects/{path}", headers={"X-Storage-Key": init_storage()}, timeout=60)
     resp.raise_for_status()
     return resp.content, resp.headers.get("Content-Type", "application/octet-stream")
+
+
+def delete_local_object(path):
+    if STORAGE_BACKEND == "local":
+        _local(path).unlink(missing_ok=True)
+
+
+def storage_check():
+    try:
+        init_storage(force=True)
+        if STORAGE_BACKEND == "local":
+            probe = SCREENSHOT_DIR / ".write_test"
+            probe.write_bytes(b"ok")
+            probe.unlink()
+        return {"backend": STORAGE_BACKEND, "ok": True, "error": ""}
+    except Exception as e:
+        return {"backend": STORAGE_BACKEND, "ok": False, "error": str(e)[:300]}

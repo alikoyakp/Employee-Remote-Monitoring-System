@@ -134,7 +134,12 @@ def main():
                         resp = s.post(f"{api}/screenshot", files={"file": (name, data, ctype)}, timeout=60)
                         if resp.ok or resp.status_code == 429:
                             last_shot = time.time()
-                        print(f"  screenshot -> {resp.status_code}")
+                        detail = "" if resp.ok else f" ({resp.json().get('detail', '') if 'json' in resp.headers.get('content-type', '') else resp.text[:120]})"
+                        print(f"  screenshot -> {resp.status_code}{detail}")
+                    elif not cfg["screenshots_enabled"]:
+                        print("  screenshots are disabled for your account by the admin")
+                    elif not cfg["within_schedule"]:
+                        print("  outside your working schedule - no screenshot")
                 else:
                     print(f"[{datetime.now():%H:%M}] monitoring paused ({'on break' if cfg['on_break'] else 'not clocked in'})")
             except requests.RequestException as e:

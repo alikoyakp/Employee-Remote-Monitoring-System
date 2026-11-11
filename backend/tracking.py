@@ -12,8 +12,9 @@ from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel
 from starlette.concurrency import run_in_threadpool
 
-from core import (APP_NAME, agent_member, audit, aware, clean, current_member, db, ensure_visible, get_object,
-                  get_settings, hash_token, logger, new_id, now, put_object, require_role, visible_ids)
+from core import (APP_NAME, agent_member, audit, aware, clean, current_member, db, delete_local_object, ensure_visible,
+                  get_object, get_settings, hash_token, logger, new_id, now, put_object, require_role, storage_check,
+                  visible_ids)
 from validation import in_schedule
 
 router = APIRouter(prefix="/api")
@@ -285,7 +286,11 @@ async def agent_screenshot(file: UploadFile = File(...), emp: dict = Depends(age
     t = now()
     ext = "png" if ctype == "image/png" else "jpg"
     path = f"{APP_NAME}/screenshots/{emp['id']}/{t.date().isoformat()}/{uuid.uuid4()}.{ext}"
-    result = await run_in_threadpool(put_object, path, data, ctype)
+    try:
+        result = await run_in_threadpool(put_object, path, data, ctype)
+    except Exception as e:
+        logger.error("Screenshot storage failed: %s", e)
+        raise HTTPException(status_code=503, detail="Screenshot storage is not available on the server. An admin can check it on the Screenshots page.")
     doc = {"id": new_id(), "employee_id": emp["id"], "employee_code": emp["employee_id"], "session_id": s["id"],
            "storage_path": result["path"], "content_type": ctype, "size": len(data), "taken_at": t,
            "day": t.date().isoformat(), "is_deleted": False}
@@ -382,6 +387,21 @@ async def timeline(employee_id: str, date: str, member: dict = Depends(current_m
             "last_interaction_at": clean(emp.get("last_interaction_at")) if emp else None}
 
 
+@router.get("/admin/capture-status")
+async def capture_status(admin: dict = Depends(require_role("admin"))):
+    storage = await run_in_threadpool(storage_check)
+    emps = await db.employees.find({"screenshots_enabled": True, "status": {"$ne": "inactive"}}, {"_id": 0}).to_list(5000)
+    states = await live_states(emps)
+    rows = []
+    for e in emps:
+        last = await db.screenshots.find_one({"employee_id": e["id"], "is_deleted": False}, {"_id": 0, "taken_at": 1}, sort=[("taken_at", -1)])
+        rows.append({"id": e["id"], "full_name": e["full_name"], "employee_id": e["employee_id"], "has_agent_token": bool(e.get("agent_token_hash")),
+                     "agent_last_used_at": clean(e.get("agent_last_used_at")), "status": states[e["id"]]["status"],
+                     "within_schedule": within_schedule(e), "working_schedule": e.get("working_schedule"), "timezone": e.get("timezone", "UTC"),
+                     "last_screenshot_at": clean(last["taken_at"]) if last else None})
+    return {"storage": storage, "employees": rows}
+
+
 # Maintenance: missed logouts + retention
 async def run_maintenance():
     settings, t = await get_settings(), now()
@@ -391,6 +411,12 @@ async def run_maintenance():
         await close_session(s, aware(s["last_seen"]), "missed_logout", auto=True)
         closed += 1
     shot_cut = t - timedelta(days=settings["screenshot_retention_days"])
+    expired = await db.screenshots.find({"is_deleted": False, "taken_at": {"$lt": shot_cut}}, {"_id": 0, "storage_path": 1}).to_list(100000)
+    for s in expired:
+        try:
+            delete_local_object(s["storage_path"])
+        except Exception as e:
+            logger.warning("Could not delete screenshot file: %s", e)
     shots = await db.screenshots.update_many({"is_deleted": False, "taken_at": {"$lt": shot_cut}}, {"$set": {"is_deleted": True, "deleted_at": t, "deleted_reason": "retention"}})
     act = await db.activity.delete_many({"minute": {"$lt": t - timedelta(days=settings["activity_retention_days"])}})
     result = {"sessions_auto_closed": closed, "screenshots_expired": shots.modified_count, "activity_purged": act.deleted_count}

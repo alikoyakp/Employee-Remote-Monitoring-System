@@ -6,6 +6,7 @@ import { Empty, PageHeader, Panel } from "@/components/Page";
 import { PickSelect, empOptions } from "@/components/PickSelect";
 import { useLookups, useMe } from "@/context/MeContext";
 import { fmtDateTime, isoDay, useApi } from "@/lib/api";
+import { CaptureStatus } from "@/components/CaptureStatus";
 
 function useShotUrl(id) {
   const api = useApi();
@@ -32,7 +33,7 @@ function Shot({ id, className }) {
 export default function Screenshots() {
   const api = useApi();
   const { me } = useMe();
-  const { employees, departments } = useLookups();
+  const { employees } = useLookups();
   const [emp, setEmp] = useState("");
   const [date, setDate] = useState(isoDay());
   const [rows, setRows] = useState(null);
@@ -45,7 +46,6 @@ export default function Screenshots() {
     api.get("/screenshots", { params: { employee_id: emp || undefined, date: date || undefined } }).then((r) => setRows(r.data)).catch(() => setRows([]));
   }, [api, emp, date]);
   const visibleEmps = employees.filter((e) => e.id !== me.id || me.role === "admin");
-  void departments;
   return (
     <div data-testid="screenshots-page">
       <PageHeader title="Screenshots" subtitle={me.role === "admin" ? "All employees with screenshots enabled." : "Your direct reports only."} />
@@ -53,12 +53,13 @@ export default function Screenshots() {
         <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" />
         <span>Restricted area. Every list and image view is recorded in the audit log. Screenshots are deleted automatically after {retention} days and are only captured for employees an admin has enabled.</span>
       </div>
+      {me.role === "admin" && <CaptureStatus />}
       <Panel>
         <div className="mb-4 flex flex-col gap-2 sm:flex-row">
           <PickSelect value={emp} onChange={setEmp} options={empOptions(visibleEmps)} allLabel="All employees" testId="screenshots-employee-filter" className="w-full sm:w-72" />
           <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="sm:w-44" data-testid="screenshots-date-filter" />
         </div>
-        {rows && !rows.length && <Empty testId="screenshots-empty">No screenshots for this filter. Screenshots come from the desktop agent for employees with screenshots enabled.</Empty>}
+        {rows && !rows.length && <Empty testId="screenshots-empty">No screenshots for this filter. Screenshots are taken only by the desktop agent (not the browser) - see Capture status above.</Empty>}
         {rows && rows.length > 0 && (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" data-testid="screenshots-grid">
             {rows.map((s) => (

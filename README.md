@@ -75,7 +75,8 @@ Environment templates: `backend/env.example` and `frontend/env.example` (copy to
 | JWT_SECRET | backend | Long random string used to sign login sessions |
 | ADMIN_EMAIL / ADMIN_PASSWORD | backend | First admin account(s) (comma-separated emails) and their initial password |
 | WEBHOOK_CRON_SECRET | backend | Bearer secret for POST /api/cron/maintenance (call it every 15 min) |
-| EMERGENT_LLM_KEY | backend | Unlocks Emergent object storage for screenshots |
+| EMERGENT_LLM_KEY | backend | Unlocks Emergent object storage for screenshots (only when STORAGE_BACKEND=emergent) |
+| STORAGE_BACKEND / SCREENSHOT_DIR | backend | `local` stores screenshots on the server disk in SCREENSHOT_DIR (private, served only via the API); `emergent` uses Emergent cloud storage. Default: emergent if EMERGENT_LLM_KEY is set, else local |
 | REACT_APP_BACKEND_URL | frontend | Public URL of the backend (routes are under /api) |
 
 Use the platform **Deploy** button.
