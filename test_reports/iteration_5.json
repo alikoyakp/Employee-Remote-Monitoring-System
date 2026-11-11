@@ -1,0 +1,36 @@
+{
+  "summary": "Tested the screenshot-capture diagnostics and the new local storage backend. Backend: 56/56 pytest pass (50 existing tests plus 6 new ones in tests/test_capture_storage.py). (1) Local mode, run as a subprocess with STORAGE_BACKEND=local and SCREENSHOT_DIR set to a temp dir: storage_check ok; put_object and get_object round-trip for png and jpeg, with the right content types; path traversal is blocked for get and put ('../', '/etc/passwd', 'a/../../', ''); delete_local_object removes the file, accepts a missing file and rejects traversal; storage_check returns ok=false with an error when the directory is not writable; with neither STORAGE_BACKEND nor EMERGENT_LLM_KEY set, the backend defaults to local. (2) POST /api/agent/screenshot returns 503 with a storage message when put_object raises. Tested in-process with TestClient: put_object patched, open_session and within_schedule faked, the agent dependency overridden, and the startup event not run. (3) GET /api/admin/capture-status returns 401 without a token, 403 for manager and employee, and 200 for admin with storage {backend: emergent, ok: true, error: ''}. Each row has all the requested fields and no token hash. (4) End-to-end: agent token -> enable -> the capture-status row shows has_agent_token and signed_out -> agent clock-in -> PNG upload returns 200 -> the shot is in the gallery and its image returns PNG bytes -> last_screenshot_at, agent_last_used_at and an active/idle status appear -> cleanup -> the token returns 401 and TEST_EMP leaves capture-status. The agent compiles, and /api/agent/download returns 200 text/x-python, byte-identical to agent_dist/erm_agent.py. Frontend: the admin Screenshots page shows capture-status-panel with 'Screenshot storage (Emergent cloud): working' and capture-row/capture-reason entries. Reasons seen: 'Desktop agent not running' (Ali, alikoyakp), 'Not clocked in' (TEST_EMP signed out), and 'Capturing' after the agent clocked in and uploaded. The new screenshot card loads its image and opens the lightbox. The manager has no capture panel and still sees the TEST_EMP shots. The 'Outside schedule' and 'not set up' reasons were not checked in the UI; they are a simple client-side mapping I reviewed in code.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "GET /api/admin/capture-status", "issue": "storage_check() calls init_storage(force=True) on every page load, so each admin visit to Screenshots makes a fresh network call to Emergent /init. It also runs one find_one per employee for last_screenshot (N+1). Acceptable for small teams; consider an aggregate query."},
+      {"endpoint": "run_maintenance (emergent mode)", "issue": "Retention only soft-deletes DB rows; the objects in Emergent storage are never removed (delete_local_object is a no-op outside local mode). Local mode deletes the files correctly."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {"flow": "CaptureStatus.jsx", "issue": "If /admin/capture-status fails, the error is swallowed (catch(() => {})) and the panel silently disappears, which hides the diagnostic exactly when it is needed. Show an error state instead. There is also no refresh button; the panel loads only once.", "affected_selectors": ["[data-testid=capture-status-panel]"]}
+    ],
+    "design_issues": [
+      {"screen": "Screenshots filters", "issues": ["The date filter uses the browser's native <input type=date> instead of the shadcn date picker (pre-existing)."]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_capture_storage.py", "/app/backend/tests/ui_setup.py", "/app/test_reports/pytest/pytest_results.xml"],
+  "action_items": [
+    "Optional: show an error state in CaptureStatus when the API fails, and add a refresh button.",
+    "Optional: in emergent mode, delete or flag remote objects on retention; avoid force re-init on every capture-status call."
+  ],
+  "critical_code_review_comments": [
+    "_local() resolves the path and checks that it is inside SCREENSHOT_DIR (parents check), which correctly blocks traversal and the root itself.",
+    "The 503 path logs the exception and returns a user-friendly message. The desktop agent prints the status and detail for non-OK responses, so the user will see the 503 reason in the agent console.",
+    "In reason(), a stale agent_last_used_at (>10 min) takes priority over 'Not clocked in'. This is sensible, because the agent drives clock-in.",
+    "env.example documents STORAGE_BACKEND=local and SCREENSHOT_DIR for self-hosting. backend/screenshot_data/ is in .gitignore."
+  ],
+  "updated_files": ["/app/backend/tests/test_capture_storage.py (new)", "/app/backend/tests/ui_setup.py (new UI-test helper: setup/shot/cleanup for TEST_EMP only)"],
+  "success_rate": {"backend": "100% (56/56)", "frontend": "100% of tested flows"},
+  "seed_data_creation": "Only TEST_EMP data. Agent tokens were created and revoked; screenshots_enabled was toggled on and back off; agent sessions were opened and clocked out. 2 new TEST_EMP screenshots were uploaded (they remain in the gallery, as from earlier runs; 16 non-deleted TEST_EMP shots in total). Earlier TEST_EMP screenshot taken_at values were moved back 5h to pass the interval gate. Final state: screenshots_enabled=false, no agent token, no open session. No real employees (Ali, alikoyakp, owner) were touched.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Run: cd /app/backend && python -m pytest tests/ (56 tests; pytest.ini adds xdist, so do not pass -p no:xdist). Local storage mode is tested in subprocesses, so backend/.env is untouched. UI helper: python tests/ui_setup.py setup|shot|cleanup. Real employees Ali and alikoyakp have screenshots enabled and appear in capture-status; do not modify them."
+}

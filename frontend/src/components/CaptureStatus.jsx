@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
-import { CheckCircle2, XCircle } from "lucide-react";
+import { CheckCircle2, RefreshCw, XCircle } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Panel } from "@/components/Page";
 import { StatusPill } from "@/components/StatusPill";
-import { fmtDateTime, sinceText, useApi } from "@/lib/api";
+import { errMsg, fmtDateTime, sinceText, useApi } from "@/lib/api";
 
 function reason(r) {
   if (!r.has_agent_token) return "Desktop agent not set up (no agent token)";
@@ -17,13 +18,22 @@ function reason(r) {
 export function CaptureStatus() {
   const api = useApi();
   const [data, setData] = useState(null);
+  const [error, setError] = useState("");
+  const load = () => {
+    setError("");
+    api.get("/admin/capture-status").then((r) => setData(r.data)).catch((e) => setError(errMsg(e)));
+  };
   useEffect(() => {
-    api.get("/admin/capture-status").then((r) => setData(r.data)).catch(() => {});
-  }, [api]);
+    load();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const refresh = <Button size="sm" variant="outline" onClick={load} data-testid="capture-status-refresh"><RefreshCw className="mr-1 h-3.5 w-3.5" /> Refresh</Button>;
+  if (error) {
+    return <Panel title="Capture status" className="mb-6" action={refresh} testId="capture-status-panel"><p className="text-sm text-red-300" data-testid="capture-status-error">Could not load capture status: {error}</p></Panel>;
+  }
   if (!data) return null;
   const s = data.storage;
   return (
-    <Panel title="Capture status" className="mb-6" testId="capture-status-panel">
+    <Panel title="Capture status" className="mb-6" action={refresh} testId="capture-status-panel">
       <div className={`mb-4 flex items-start gap-2 text-sm ${s.ok ? "text-emerald-300" : "text-red-300"}`} data-testid="storage-status">
         {s.ok ? <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" /> : <XCircle className="mt-0.5 h-4 w-4 shrink-0" />}
         <span>Screenshot storage ({s.backend === "local" ? "server disk" : "Emergent cloud"}): {s.ok ? "working" : `not working - ${s.error}`}</span>
